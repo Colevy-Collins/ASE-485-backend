@@ -85,9 +85,17 @@ String buildGeminiPrompt(String recentLegs, String decision) {
       "3. Do not introduce contradictions or drastic changes in tone.\n"
       "4. The new leg should logically follow from the previous story legs.\n";
   
+  // Determine which legs to include based on available context.
+  String context;
+  if (totalLegs >= 5) {
+    context = "Recent Story Legs (last 5):\n$recentLegs";
+  } else {
+    context = "Recent Story Legs (all available):\n$recentLegs";
+  }
+  
   return "Total Story Legs Created: $totalLegs\n\n"
          "$guidelines\n"
-         "Recent Story Legs:\n$recentLegs\n\n"
+         "$context\n\n"
          "New Decision: $decision\n\n"
          "Generate the next part of the story.";
 }
@@ -174,7 +182,7 @@ void main() async {
       .addMiddleware(corsHeaders(headers: corsHeadersConfig))
       .addMiddleware(verifyTokenMiddleware)
       .addHandler((Request request) async {
-    // GET: Return the current story as a plain text summary.
+    // Handle GET: Return the current story as a plain text summary.
     if (request.method == 'GET') {
       StringBuffer buffer = StringBuffer();
       StoryLeg? current = head;
@@ -188,7 +196,7 @@ void main() async {
       }
       return Response.ok(buffer.toString());
     }
-    // POST: Process a client decision and generate the next story leg.
+    // Handle POST: Process a client decision and generate the next story leg.
     else if (request.method == 'POST') {
       try {
         final payload = await request.readAsString();
