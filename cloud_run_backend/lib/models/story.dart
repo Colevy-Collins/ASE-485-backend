@@ -36,4 +36,6 @@ class StoryData {
 
   // Stores the final resolution leg once it has been generated.
   Map<String, dynamic>? finalResolution;
+
+  DateTime? lastActivity;
 }
