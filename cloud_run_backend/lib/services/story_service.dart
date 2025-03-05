@@ -11,23 +11,25 @@ const String defaultSetting = "Modern";
 const String defaultTone = "Suspenseful";
 const int defaultMaxLegs = 2;
 
-/// Generates a section-specific system prompt based on the current section and leg.
-/// In the Resolution section, if the current leg is the final leg, the prompt instructs the AI to end the story.
+/// Generates a section-specific system prompt based on the current section and includes any cumulative summaries.
 Map<String, dynamic> generateSystemPrompt(StoryData storyData) {
+  // Concatenate all stored summaries from previous sections.
+  String summariesText = "";
+  if (storyData.sectionSummaries.isNotEmpty) {
+    summariesText = "Summaries of previous sections:\n" + storyData.sectionSummaries.join("\n") + "\n";
+  }
+  
   String sectionPrompt;
   if (storyData.currentSection == "Resolution") {
-    // If we're in the Resolution section and on the final leg:
+    // For Resolution, if this is the final leg, instruct a conclusive ending.
     if (storyData.currentLeg >= (storyData.sectionLegLimits["Resolution"] ?? defaultMaxLegs)) {
-      sectionPrompt = "This is the final leg of the Resolution section. Review the past five story legs and the most recent user decisions to craft a satisfying and logical conclusion. "
-                "The ending must be directly influenced by the choices the user has made throughout the story. "
-                "- Reference all avalible materail to ensure continuity. "
-                "- End in a way that feels natural and earned based on the user's decisions. "
-                "Both 'option1' and 'option2' must be set to 'The story ends'.";
+      sectionPrompt = "This is the final leg of the Resolution section. Review past user decisions and story legs to create a conclusive ending that wraps up all conflicts. "
+                      "Ensure that the story ends clearly and that the user's final decision is reflected. "
+                      "Both 'option1' and 'option2' must be 'The story ends'.";
     } else {
-      sectionPrompt = "Build suspense and tension, leading the narrative toward the final decision that will conclusively end the story.";
+      sectionPrompt = "Build up suspense toward the final decision that will end the story.";
     }
   } else {
-    // For all other sections, use the standard prompt
     switch (storyData.currentSection) {
       case "Exposition":
         sectionPrompt = "Begin the story by establishing the setting, introducing key characters, and setting up the initial situation.";
@@ -46,16 +48,17 @@ Map<String, dynamic> generateSystemPrompt(StoryData storyData) {
         break;
     }
   }
-
+  
   return {
     "role": "system",
-    "content": "You are an AI generating an interactive story divided into five sections: Exposition, Rising Action, Climax, Falling Action, and Resolution.\n"
+    "content": summariesText +
+               "You are an AI generating an interactive story divided into five sections: Exposition, Rising Action, Climax, Falling Action, and Resolution.\n"
                "Current Section: ${storyData.currentSection}.\n"
                "$sectionPrompt\n"
                "Genre: ${storyData.genre ?? defaultGenre}. Ensure all elements align with this genre.\n"
                "Setting: ${storyData.setting ?? defaultSetting}. Fully immerse the user in this environment.\n"
                "Tone & Style: ${storyData.tone ?? defaultTone}. Maintain a consistent writing style.\n"
-               //"Each leg should contain at least 200 words.\n"
+               "Each leg should contain at least 200 words.\n"
   };
 }
 
@@ -66,7 +69,8 @@ void initializeStory(StoryData storyData, String decision, String genre, String 
   storyData.tone = tone.isNotEmpty ? tone : defaultTone;
   storyData.maxLegs = maxLegs > 0 ? maxLegs : defaultMaxLegs;
   storyData.currentSection = "Exposition"; // Start with Exposition.
-  storyData.currentLeg = 1; // Reset leg counter for the section.
+  storyData.currentLeg = 1;                // Reset leg counter for the section.
+  storyData.currentSectionStartIndex = 0;    // Mark the starting index for this section.
   
   // Add the initial system prompt.
   Map<String, dynamic> systemPrompt = generateSystemPrompt(storyData);
@@ -97,8 +101,44 @@ List<Content> buildChatHistory(StoryData storyData) {
   return history;
 }
 
+/// Summarizes all story legs in the current section to capture major details, decisions, and brief narrative summaries.
+/// For each leg, include the leg number, the user's decision, and a short summary of the narrative.
+/// The goal is to greatly reduce characters while preserving all important information.
+Future<String> summarizeSection(StoryData storyData, GenerativeModel model) async {
+  StringBuffer sectionText = StringBuffer();
+  // Loop over the current section's legs.
+  for (int i = storyData.currentSectionStartIndex; i < storyData.storyLegs.length; i++) {
+    StoryLeg leg = storyData.storyLegs[i];
+    // Assume leg numbering corresponds to their index + 1.
+    int legNumber = i + 1;
+    String decision = leg.userMessage['content'] ?? "";
+    // For the AI response, extract a brief portion (or ask the summarizer to do that).
+    String narrative = leg.aiResponse['content'] ?? "";
+    sectionText.writeln("Leg $legNumber:");
+    if (decision.trim().isNotEmpty) {
+      sectionText.writeln("Decision: $decision");
+    }
+    sectionText.writeln("Summary: $narrative\n");
+  }
+  String summarizationPrompt = "Summarize the following section of the story. For each leg, include the leg number, the user's decision, and a brief summary (2-3 sentences) of the narrative. "
+      "Keep it concise while preserving all important details:\n" + sectionText.toString();
+  
+  List<Content> summaryHistory = [Content.text(summarizationPrompt)];
+  final summaryChat = model.startChat(history: summaryHistory);
+  final summaryResponse = await summaryChat.sendMessage(Content.text(summarizationPrompt));
+  final summaryResultText = summaryResponse.text ?? '';
+  String summary = summaryResultText.trim();
+  
+  // Add the new summary to the list of summaries.
+  storyData.sectionSummaries.add(summary);
+  
+  return summary;
+}
+
 /// Calls the Gemini API using the built chat history and returns the AI’s JSON response.
-/// It checks if the current section's leg limit has been reached and handles the Resolution section specially.
+/// It checks whether the current section's leg limit has been reached. If so, it calls the summary function,
+/// adds the summary to the story data, and then transitions to the next section. In the Resolution section,
+/// only one final leg is allowed. Once that final leg is generated, it is stored and returned for all subsequent calls.
 Future<Map<String, dynamic>> callGeminiAPIWithHistory(StoryData storyData, String decision) async {
   final apiKey = Platform.environment['GEMINI_API_KEY'] ?? 'AIzaSyBeOVu5VnoOyQVMRBNRc4MuIMVhkQaB8_0';
   if (apiKey == null) {
@@ -120,29 +160,42 @@ Future<Map<String, dynamic>> callGeminiAPIWithHistory(StoryData storyData, Strin
   List<Content> history = buildChatHistory(storyData);
   history.add(Content.text("User: $decision"));
 
-  // Check if the current section's leg limit has been reached.
   int sectionLimit = storyData.sectionLegLimits[storyData.currentSection] ?? defaultMaxLegs;
-  if (storyData.currentLeg >= sectionLimit) {
-    if (storyData.currentSection == "Resolution") {
-      // Final resolution leg: generate a concluding prompt.
-      final finalInstruction = "You are in the final leg of the Resolution section. Conclude the story definitively. "
-          "Return your output as a JSON object with exactly the following keys: "
-          "'decisionNumber' (the current decision number), "
-          "'currentSection' (the current section), "
-          "'storyLeg' (the final narrative content), "
-          "'option1' and 'option2' (both must be 'The story ends').";
+  
+  // Check if we are in the Resolution section.
+  if (storyData.currentSection == "Resolution") {
+    // If the final resolution leg has already been generated, return it.
+    if (storyData.finalResolution != null) {
+      return storyData.finalResolution!;
+    }
+    // Otherwise, if the leg limit is reached, generate the final resolution leg.
+    if (storyData.currentLeg >= sectionLimit) {
+      final finalInstruction = 
+          "Review the past five story legs and the summary of the Resolution section. "
+          "Generate the final leg that conclusively ends the story. "
+          "Return your output as a JSON object with exactly these keys: "
+          "'decisionNumber', 'currentSection', 'storyLeg', 'option1', and 'option2'. "
+          "Both 'option1' and 'option2' must be 'The story ends'.";
       final chatFinal = model.startChat(history: history);
       final responseFinal = await chatFinal.sendMessage(Content.text(finalInstruction));
       final resultTextFinal = responseFinal.text ?? '';
       try {
         Map<String, dynamic> finalJsonResponse = jsonDecode(resultTextFinal);
         print("AI Final Response (Parsed JSON): ${jsonEncode(finalJsonResponse)}");
+        // Store the final resolution so future calls return the same final leg.
+        storyData.finalResolution = finalJsonResponse;
         return finalJsonResponse;
       } catch (e) {
         throw Exception("Failed to parse final AI response as JSON: $e. Response: $resultTextFinal");
       }
-    } else {
-      // Transition to the next section for non-final sections.
+    }
+  } else {
+    // For non-resolution sections, if the leg limit is reached, summarize and transition.
+    if (storyData.currentLeg >= sectionLimit) {
+      String summary = await summarizeSection(storyData, model);
+      // Update the start index for the new section.
+      storyData.currentSectionStartIndex = storyData.storyLegs.length;
+      
       switch (storyData.currentSection) {
         case "Exposition":
           storyData.currentSection = "Rising Action";
@@ -159,24 +212,26 @@ Future<Map<String, dynamic>> callGeminiAPIWithHistory(StoryData storyData, Strin
       }
       // Reset the leg counter for the new section.
       storyData.currentLeg = 1;
-      // Add a system message indicating a section transition.
       Map<String, dynamic> sectionTransitionMessage = {
         "role": "system",
         "content": "Transitioning to ${storyData.currentSection}. Please continue the story."
       };
       storyData.storyLegs.add(StoryLeg(userMessage: {}, aiResponse: sectionTransitionMessage));
     }
-  } else {
-    // Otherwise, simply increment the leg count.
+  }
+
+  // For non-final legs, simply increment the leg count.
+  if (storyData.currentSection != "Resolution" || storyData.finalResolution == null) {
     storyData.currentLeg++;
   }
   
-  // Generate an updated system prompt for the current section (including Resolution, if not final).
+  // Generate an updated system prompt for the current section (including all stored summaries).
   Map<String, dynamic> systemPrompt = generateSystemPrompt(storyData);
   history.add(Content.text(systemPrompt["content"]));
 
-  final instruction = "Before making the next story leg, reference previous decisions to ensure continuity based on users decisions."
-      "When the current section's leg limit is reached, transition to the next section. In the final Resolution leg, ensure that the output is a JSON object with exactly these keys: "
+  final instruction = "Before making the next story leg, reference previous decision numbers, the summaries of all previous sections, and craft the next leg to move the story toward its conclusion. "
+      "When the current section's leg limit is reached, transition to the next section. "
+      "In the final Resolution leg, ensure that the output is a JSON object with exactly these keys: "
       "'decisionNumber', 'currentSection', 'storyLeg', 'option1', and 'option2' (both options must be 'The story ends').";
   final chat = model.startChat(history: history);
   final response = await chat.sendMessage(Content.text(instruction));
