@@ -15,6 +15,7 @@ class StoryData {
   String? setting;
   String? tone;
   int? maxLegs;
+  int? optionCount;
 
   // Section-based storytelling properties.
   int currentLeg = 1; // Counter for legs within the current section.

@@ -37,9 +37,10 @@ Handler createApiHandler() {
         final String setting = (data['setting'] as String?) ?? defaultSetting;
         final String tone = (data['tone'] as String?) ?? defaultTone;
         final int maxLegs = (data['maxLegs'] as int?) ?? defaultMaxLegs;
+        final int optionCount = (data['optionCount'] as int?) ?? defaultOptionCount;
         
         // Initialize the story and generate the first leg.
-        initializeStory(storyData, decision, genre, setting, tone, maxLegs);
+        initializeStory(storyData, decision, genre, setting, tone, maxLegs, optionCount);
         final Map<String, dynamic> aiJson = await callGeminiAPIWithHistory(storyData, decision);
         appendStoryLeg(storyData, decision, aiJson);
         return Response.ok(

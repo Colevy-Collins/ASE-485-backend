@@ -10,6 +10,7 @@ const String defaultGenre = "Adventure";
 const String defaultSetting = "Modern";
 const String defaultTone = "Suspenseful";
 const int defaultMaxLegs = 2;
+const int defaultOptionCount = 2;
 
 /// Generates a section-specific system prompt based on the current section and includes any cumulative summaries.
 Map<String, dynamic> generateSystemPrompt(StoryData storyData) {
@@ -59,15 +60,17 @@ Map<String, dynamic> generateSystemPrompt(StoryData storyData) {
                "Setting: ${storyData.setting ?? defaultSetting}. Fully immerse the user in this environment.\n"
                "Tone & Style: ${storyData.tone ?? defaultTone}. Maintain a consistent writing style.\n"
                "Each leg should contain at least 200 words.\n"
+               "Each leg should have ${storyData.optionCount} options for the user to choose from.\n"
   };
 }
 
 /// Initializes a new story with the provided options and adds the system prompt for the first section.
-void initializeStory(StoryData storyData, String decision, String genre, String setting, String tone, int maxLegs) {
+void initializeStory(StoryData storyData, String decision, String genre, String setting, String tone, int maxLegs, int optionCount) {
   storyData.genre = genre.isNotEmpty ? genre : defaultGenre;
   storyData.setting = setting.isNotEmpty ? setting : defaultSetting;
   storyData.tone = tone.isNotEmpty ? tone : defaultTone;
   storyData.maxLegs = maxLegs > 0 ? maxLegs : defaultMaxLegs;
+  storyData.optionCount = optionCount > 0 ? optionCount : 2; // new: store option count
   storyData.currentSection = "Exposition"; // Start with Exposition.
   storyData.currentLeg = 1;                // Reset leg counter for the section.
   storyData.currentSectionStartIndex = 0;    // Mark the starting index for this section.
@@ -76,6 +79,7 @@ void initializeStory(StoryData storyData, String decision, String genre, String 
   Map<String, dynamic> systemPrompt = generateSystemPrompt(storyData);
   storyData.storyLegs.add(StoryLeg(userMessage: {}, aiResponse: systemPrompt));
 }
+
 
 /// Appends a new story leg to the user's story.
 void appendStoryLeg(StoryData storyData, String decision, Map<String, dynamic> aiResponse) {
@@ -140,7 +144,7 @@ Future<String> summarizeSection(StoryData storyData, GenerativeModel model) asyn
 /// adds the summary to the story data, and then transitions to the next section. In the Resolution section,
 /// only one final leg is allowed. Once that final leg is generated, it is stored and returned for all subsequent calls.
 Future<Map<String, dynamic>> callGeminiAPIWithHistory(StoryData storyData, String decision) async {
-  final apiKey = Platform.environment['GEMINI_API_KEY'] ?? 'AIzaSyBeOVu5VnoOyQVMRBNRc4MuIMVhkQaB8_0';
+  final apiKey = Platform.environment['GEMINI_API_KEY'];
   if (apiKey == null) {
     throw Exception('No GEMINI_API_KEY environment variable');
   }
@@ -174,8 +178,8 @@ Future<Map<String, dynamic>> callGeminiAPIWithHistory(StoryData storyData, Strin
           "Review the past five story legs and the summary of the Resolution section. "
           "Generate the final leg that conclusively ends the story. "
           "Return your output as a JSON object with exactly these keys: "
-          "'decisionNumber', 'currentSection', 'storyLeg', 'option1', and 'option2'. "
-          "Both 'option1' and 'option2' must be 'The story ends'.";
+          "'decisionNumber', 'currentSection', 'storyLeg', and 'options'. "
+          "The 'options' array must have exactly 1 entries, and said entry must be 'The story ends'.";
       final chatFinal = model.startChat(history: history);
       final responseFinal = await chatFinal.sendMessage(Content.text(finalInstruction));
       final resultTextFinal = responseFinal.text ?? '';
@@ -229,10 +233,11 @@ Future<Map<String, dynamic>> callGeminiAPIWithHistory(StoryData storyData, Strin
   Map<String, dynamic> systemPrompt = generateSystemPrompt(storyData);
   history.add(Content.text(systemPrompt["content"]));
 
-  final instruction = "Before making the next story leg, reference previous decision numbers, the summaries of all previous sections, and craft the next leg to move the story toward its conclusion. "
-      "When the current section's leg limit is reached, transition to the next section. "
-      "In the final Resolution leg, ensure that the output is a JSON object with exactly these keys: "
-      "'decisionNumber', 'currentSection', 'storyLeg', 'option1', and 'option2' (both options must be 'The story ends').";
+  final instruction = "Before making the next story leg, reference previous decision numbers, the summaries of all previous sections, "
+    "and craft the next leg to move the story toward its conclusion. "
+    "When the current section's leg limit is reached, transition to the next section. "
+    "Return your output as a JSON object with exactly these keys: 'decisionNumber', 'currentSection', 'storyLeg', and 'options'. "
+    "The 'options' array must have exactly ${storyData.optionCount} entries, representing the choices available to the user.";
   final chat = model.startChat(history: history);
   final response = await chat.sendMessage(Content.text(instruction));
   final resultText = response.text ?? '';
