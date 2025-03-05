@@ -6,12 +6,18 @@ import 'package:firebase_admin/firebase_admin.dart';
 import 'package:shelf_cors_headers/shelf_cors_headers.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
 
-/// Class representing a single story leg.
-class StoryLeg {
-  String storyText;
-  String decision; // The decision that led to this leg.
+/// Default user options.
+const String defaultGenre = "Adventure";
+const String defaultSetting = "Modern";
+const String defaultTone = "Suspenseful";
+const int defaultMaxLegs = 10;
 
-  StoryLeg({required this.storyText, required this.decision});
+/// Class representing a single story leg, storing both the user’s message and AI’s response as JSON.
+class StoryLeg {
+  Map<String, dynamic> userMessage;
+  Map<String, dynamic> aiResponse;
+
+  StoryLeg({required this.userMessage, required this.aiResponse});
 }
 
 /// Class to hold a user's story data.
@@ -26,88 +32,76 @@ class StoryData {
 /// Global map that stores story data for each user (keyed by user id).
 Map<String, StoryData> stories = {};
 
-/// Initializes a new story for a user by creating the head element (rules/settings prompt)
-/// and storing the story options.
+/// Initializes a new story for a user by storing story options and adding a system prompt as the first message.
 void initializeStory(StoryData storyData, String decision, String genre, String setting, String tone, int maxLegs) {
-  storyData.genre = genre;
-  storyData.setting = setting;
-  storyData.tone = tone;
-  storyData.maxLegs = maxLegs;
+  // Use provided values or defaults.
+  storyData.genre = genre.isNotEmpty ? genre : defaultGenre;
+  storyData.setting = setting.isNotEmpty ? setting : defaultSetting;
+  storyData.tone = tone.isNotEmpty ? tone : defaultTone;
+  storyData.maxLegs = maxLegs > 0 ? maxLegs : defaultMaxLegs;
   
-  String systemPrompt = "Rules and Guidelines:\n"
-      "1. The generated story must be in plain text.\n"
-      "2. Maintain narrative continuity and consistency with previous legs.\n"
-      "3. Do not introduce contradictions or drastic changes in tone.\n"
-      "4. The new leg should logically follow from the previous story legs.\n"
-      "5. This story is on leg 1 out of $maxLegs.\n"
-      "6. The genre of this story is $genre.\n"
-      "7. The story setting is $setting.\n"
-      "8. The story's tone and style are $tone.\n"
-      "9. Ensure that the new leg gives 2 options to choose from in order to progress the story.\n"
-      "10. Ensure high quality narrative generation with attention to detail and creative language.";
-  
-  storyData.storyLegs.add(StoryLeg(storyText: systemPrompt, decision: ""));
+  // Build a system prompt instructing the AI to respond in JSON.
+  Map<String, dynamic> systemPrompt = {
+    "role": "system",
+    "content": "You are an AI generating an interactive story. Follow these rules:\n"
+    "1. Maintain narrative continuity and consistency with previous legs. Ensure events logically flow from one to the next.\n"
+    "2. Do not introduce contradictions, sudden tone shifts, or drastic changes in character behavior.\n"
+    "3. Genre: ${storyData.genre}. Keep all elements aligned with this genre.\n"
+    "4. Setting: ${storyData.setting}. Fully immerse the user in this environment by describing its unique details.\n"
+    "5. Tone & Style: ${storyData.tone}. Maintain a consistent writing style that aligns with this tone.\n"
+    "6. This is a branching narrative where users make choices that meaningfully affect the story.\n"
+    "7. This story has a total of $maxLegs legs. The story must conclude at leg $maxLegs with a satisfying ending.\n"
+    "8. Return a JSON object with:\n"
+    "   - 'legNumber': The current leg number.\n"
+    "   - 'storyLeg': The next part of the story.\n"
+    "   - 'option1': The first decision option.\n"
+    "   - 'option2': The second decision option.\n"
+    "9. Provide rich, immersive world-building with detailed descriptions of surroundings, objects, and sensory experiences.\n"
+    "10. Explore character emotions deeply, revealing their thoughts, fears, and motivations.\n"
+    "11. Give characters distinct personalities, appearances, and mannerisms to make them feel real.\n"
+    "12. Describe character actions vividly, ensuring movements and interactions are engaging.\n"
+    "13. Introduce a sense of danger, tension, or urgency at key moments to keep the story exciting.\n"
+    "14. If the user is approaching the final leg, begin setting up a logical and meaningful conclusion. \n"
+    "15. A story leg should have at least 200 words.\n"
+  };
+
+  // Add the system prompt as the first message.
+  storyData.storyLegs.add(StoryLeg(userMessage: {}, aiResponse: systemPrompt));
 }
 
 /// Appends a new story leg to the user's story.
-void appendStoryLeg(StoryData storyData, String decision, String newLegText) {
-  storyData.storyLegs.add(StoryLeg(storyText: newLegText, decision: decision));
+void appendStoryLeg(StoryData storyData, String decision, Map<String, dynamic> aiResponse) {
+  Map<String, dynamic> userMsg = {
+    "role": "user",
+    "content": decision
+  };
+  storyData.storyLegs.add(StoryLeg(userMessage: userMsg, aiResponse: aiResponse));
 }
 
-/// Returns the total number of legs for a user's story.
-int getTotalLegs(StoryData storyData) {
-  return storyData.storyLegs.length;
-}
+/// Builds chat history from the stored JSON communications as a list of Content objects.
+List<Content> buildChatHistory(StoryData storyData) {
+  List<Content> history = [];
 
-/// Builds a text representation of the most recent [count] story legs.
-String buildRecentLegsText(StoryData storyData, int count) {
-  List<StoryLeg> legs = List.from(storyData.storyLegs);
-  if (legs.length > count) {
-    legs = legs.sublist(legs.length - count);
+  if (storyData.storyLegs.isNotEmpty) {
+    // **Always include the first leg (system message)**
+    history.add(Content.text(storyData.storyLegs.first.aiResponse['content']));
   }
-  return legs.map((leg) {
-    if (leg.decision.isNotEmpty) {
-      return "Leg: ${leg.storyText}\nDecision: ${leg.decision}";
-    } else {
-      return "Leg: ${leg.storyText}";
-    }
-  }).join("\n---\n");
+
+  // **Get the last 5 legs if they exist**
+  int startIndex = storyData.storyLegs.length > 5 ? storyData.storyLegs.length - 5 : 1;
+  for (int i = startIndex; i < storyData.storyLegs.length; i++) {
+    var leg = storyData.storyLegs[i];
+    history.add(Content.text("AI: ${leg.userMessage['content']}"));
+    history.add(Content.text("User: ${leg.aiResponse['content']}"));
+  }
+
+  return history;
 }
 
-/// Builds the Gemini prompt including rules, dynamic settings, and the most recent legs.
-String buildGeminiPrompt(StoryData storyData, String recentLegs, String decision) {
-  int totalLegs = getTotalLegs(storyData);
-  int maxLegs = storyData.maxLegs ?? 10;
-  String genre = storyData.genre ?? "Unknown";
-  String setting = storyData.setting ?? "Unknown";
-  String tone = storyData.tone ?? "Unknown";
 
-  String guidelines = "Rules and Guidelines:\n"
-      "1. The generated story must be in plain text.\n"
-      "2. Maintain narrative continuity and consistency with previous legs.\n"
-      "3. Do not introduce contradictions or drastic changes in tone.\n"
-      "4. The new leg should logically follow from the previous story legs.\n"
-      "5. This story is on leg ${totalLegs + 1} out of $maxLegs.\n"
-      "6. The genre of this story is $genre.\n"
-      "7. The story setting is $setting.\n"
-      "8. The story's tone and style are $tone.\n"
-      "9. Ensure that the new leg gives 2 options to choose from in order to progress the story.\n"
-      "10. Ensure high quality narrative generation with attention to detail and creative language.\n";
-  
-  String context = recentLegs.trim().isEmpty
-      ? "No previous story legs."
-      : "Recent Story Legs (last 5):\n$recentLegs";
-  
-  return "Total Story Legs Created: $totalLegs\n\n"
-         "$guidelines\n"
-         "$context\n\n"
-         "New Decision: $decision\n\n"
-         "Generate the next part of the story.";
-}
-
-/// Uses Gemini API built-in chat history to generate the next story leg for a user.
-Future<String> callGeminiAPIWithHistory(StoryData storyData, String decision) async {
-  final apiKey = 'AIzaSyBeOVu5VnoOyQVMRBNRc4MuIMVhkQaB8_0';
+/// Uses Gemini API built-in chat history to generate the next story leg as a JSON object.
+Future<Map<String, dynamic>> callGeminiAPIWithHistory(StoryData storyData, String decision) async {
+  final apiKey = Platform.environment['GEMINI_API_KEY'] ?? 'AIzaSyBeOVu5VnoOyQVMRBNRc4MuIMVhkQaB8_0';
   if (apiKey == null) {
     throw Exception('No GEMINI_API_KEY environment variable');
   }
@@ -120,26 +114,36 @@ Future<String> callGeminiAPIWithHistory(StoryData storyData, String decision) as
       topK: 40,
       topP: 0.95,
       maxOutputTokens: 8192,
-      responseMimeType: 'text/plain',
+      // Request the response as JSON.
+      responseMimeType: 'application/json',
     ),
   );
   
-  // Build chat history from the user's story.
-  List<Content> history = [];
-  if (storyData.storyLegs.isNotEmpty) {
-    history.add(Content.text(storyData.storyLegs.first.storyText));
-  }
-  if (storyData.storyLegs.length > 1) {
-    for (int i = 1; i < storyData.storyLegs.length; i++) {
-      history.add(Content.text("Decision: ${storyData.storyLegs[i].decision}"));
-      history.add(Content.text("Leg: ${storyData.storyLegs[i].storyText}"));
-    }
-  }
+  // Build conversation history from the user's story.
+  List<Content> history = buildChatHistory(storyData);
+  int currentLeg = storyData.storyLegs.length + 1;
+   int maxLegs = storyData.maxLegs ?? 10;
+  // Append the new decision.
+  history.add(Content.text("User: $decision"));
   
+  // Instruct the AI to return its response as a JSON object with keys "option1" and "option2".
+  final instruction = "You are on leg $currentLeg out of $maxLegs. Return your response as a JSON object with keys:"   
+      "- 'legNumber': The current leg number.\n"
+      "   - 'storyLeg': The next part of the story.\n"
+      "   - 'option1': The first decision option.\n"
+      "   - 'option2': The second decision option.";
   final chat = model.startChat(history: history);
-  final response = await chat.sendMessage(Content.text("New Decision: $decision"));
+  final response = await chat.sendMessage(Content.text(instruction));
   final resultText = response.text ?? '';
-  return resultText;
+  
+  // Parse the AI response as JSON.
+  try {
+    Map<String, dynamic> jsonResponse = jsonDecode(resultText);
+    print("AI Response (Parsed JSON): ${jsonEncode(jsonResponse)}");
+    return jsonResponse;
+  } catch (e) {
+    throw Exception("Failed to parse AI response as JSON: $e. Response: $resultText");
+  }
 }
 
 void main() async {
@@ -196,47 +200,45 @@ void main() async {
     final path = request.requestedUri.path;
     
     if (path == '/story' && request.method == 'GET') {
-      // GET /story: Return a summary of the user's current story.
-      StringBuffer buffer = StringBuffer();
+      // Return the full conversation as a JSON list.
+      List<Map<String, dynamic>> conversation = [];
       for (var leg in storyData.storyLegs) {
-        buffer.writeln("Leg: ${leg.storyText}");
-        if (leg.decision.isNotEmpty) {
-          buffer.writeln("Decision: ${leg.decision}");
-        }
-        buffer.writeln("---");
+        conversation.add({
+          "user": leg.userMessage,
+          "ai": leg.aiResponse,
+        });
       }
-      return Response.ok(buffer.toString());
+      return Response.ok(jsonEncode(conversation), headers: {'Content-Type': 'application/json'});
       
     } else if (path == '/start_story' && request.method == 'POST') {
-      // POST /start_story: Initialize a new story and generate the first leg.
+      // Initialize a new story and generate the first leg.
       try {
         final payload = await request.readAsString();
         final data = jsonDecode(payload);
-        // Expect JSON with keys: decision, genre, setting, tone, and maxLegs.
-        final String decision = data['decision'] as String;
-        final String genre = data['genre'] as String;
-        final String setting = data['setting'] as String;
-        final String tone = data['tone'] as String;
-        final int maxLegs = data['maxLegs'] as int;
+        // Use defaults if keys are not provided.
+        final String decision = (data['decision'] as String?) ?? "Start Story";
+        final String genre = (data['genre'] as String?) ?? defaultGenre;
+        final String setting = (data['setting'] as String?) ?? defaultSetting;
+        final String tone = (data['tone'] as String?) ?? defaultTone;
+        final int maxLegs = (data['maxLegs'] as int?) ?? defaultMaxLegs;
         
-        // Initialize the story.
         initializeStory(storyData, decision, genre, setting, tone, maxLegs);
-        // Generate the first leg using full options.
-        final String newLegText = await callGeminiAPIWithHistory(storyData, decision);
-        appendStoryLeg(storyData, decision, newLegText);
+        // Generate the first leg using the full options.
+        final Map<String, dynamic> aiJson = await callGeminiAPIWithHistory(storyData, decision);
+        appendStoryLeg(storyData, decision, aiJson);
         return Response.ok(
           jsonEncode({
-            'newLeg': newLegText,
+            'aiResponse': aiJson,
             'message': 'Story initialized and first leg generated successfully.'
           }),
           headers: {'Content-Type': 'application/json'},
         );
       } catch (e) {
-        print('Error processing /start_story request: $e');
+        print('Error processing /start_story: $e');
         return Response.internalServerError(body: 'Error processing request: $e');
       }
     } else if (path == '/next_leg' && request.method == 'POST') {
-      // POST /next_leg: Process the user's decision to generate the next story leg.
+      // Process the user's decision to generate the next story leg.
       try {
         final payload = await request.readAsString();
         final data = jsonDecode(payload);
@@ -245,17 +247,17 @@ void main() async {
         if (storyData.genre == null || storyData.setting == null || storyData.tone == null || storyData.maxLegs == null) {
           return Response.internalServerError(body: 'Story options not set.');
         }
-        final String newLegText = await callGeminiAPIWithHistory(storyData, decision);
-        appendStoryLeg(storyData, decision, newLegText);
+        final Map<String, dynamic> aiJson = await callGeminiAPIWithHistory(storyData, decision);
+        appendStoryLeg(storyData, decision, aiJson);
         return Response.ok(
           jsonEncode({
-            'newLeg': newLegText,
+            'aiResponse': aiJson,
             'message': 'Next leg generated successfully.'
           }),
           headers: {'Content-Type': 'application/json'},
         );
       } catch (e) {
-        print('Error processing /next_leg request: $e');
+        print('Error processing /next_leg: $e');
         return Response.internalServerError(body: 'Error processing request: $e');
       }
     } else {
