@@ -18,7 +18,7 @@ class StoryData {
   int? optionCount;
 
   // Section-based storytelling properties.
-  int currentLeg = 1; // Counter for legs within the current section.
+  int currentLeg = 0; // Counter for legs within the current section.
   String currentSection = "Exposition"; // Starting section.
   int currentSectionStartIndex = 0; // Index where the current section starts.
 
@@ -38,4 +38,21 @@ class StoryData {
   Map<String, dynamic>? finalResolution;
 
   DateTime? lastActivity;
+  // Convert StoryData to JSON for Firestore.
+  Map<String, dynamic> toJson() {
+    return {
+      'genre': genre,
+      'setting': setting,
+      'tone': tone,
+      'maxLegs': maxLegs,
+      'currentLeg': currentLeg,
+      'currentSection': currentSection,
+      'sectionSummaries': sectionSummaries,
+      'storyLegs': storyLegs.map((leg) => {
+            'userMessage': leg.userMessage,
+            'aiResponse': leg.aiResponse,
+          }).toList(),
+      'lastActivity': lastActivity?.toIso8601String(),
+    };
+  }
 }
