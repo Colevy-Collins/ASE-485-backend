@@ -9,6 +9,7 @@ const String defaultSetting = "Modern";
 const String defaultTone = "Suspenseful";
 const int defaultMaxLegs = 2;
 const int defaultOptionCount = 2;
+const String defaultstoryTitle = "New Story";
 
 /// ------------------ PROMPT GENERATION ------------------
 
@@ -68,7 +69,7 @@ void initializeStory(StoryData storyData, String decision, String genre, String 
   storyData.maxLegs = maxLegs > 0 ? maxLegs : defaultMaxLegs;
   storyData.optionCount = optionCount > 0 ? optionCount : defaultOptionCount;
   storyData.currentSection = "Exposition";
-  storyData.currentLeg = 1;
+  storyData.currentLeg = 0;
   storyData.currentSectionStartIndex = 0;
   
   // Add the initial system prompt (this is stored as a story leg for history).
@@ -83,6 +84,7 @@ void appendStoryLeg(StoryData storyData, String decision, Map<String, dynamic> a
     "content": decision,
   };
   storyData.storyLegs.add(StoryLeg(userMessage: userMsg, aiResponse: aiResponse));
+  storyData.storyTitle = aiResponse["storyTitle"];
 }
 
 /// ------------------ CHAT HISTORY ------------------
@@ -172,7 +174,7 @@ Future<Map<String, dynamic>> _handleResolutionSection(StoryData storyData, List<
   final finalInstruction = 
       "Review the past five story legs and the section summaries to ensure the resolution aligns with previous decisions and narrative points. "
       "Generate the final leg that conclusively ends the story and takes the final user desition into account. "
-      "Return your output as a JSON object with exactly these keys: 'decisionNumber', 'currentSection', 'storyLeg', and 'options'. "
+      "Return your output as a JSON object with exactly these keys: 'storyTitle', decisionNumber', 'currentSection', 'storyLeg', and 'options'. "
       "The 'options' array must have exactly 1 entry, and that entry must be 'The story ends'.";
   final chatFinal = model.startChat(history: history);
   final responseFinal = await chatFinal.sendMessage(Content.text(finalInstruction));
@@ -234,7 +236,7 @@ Future<Map<String, dynamic>> callGeminiAPIWithHistory(StoryData storyData, Strin
   final instruction = "Before generating the next story leg, reference previous decision numbers and section summaries. "
       "Craft the next leg to move the story toward its conclusion. "
       "When the current section's leg limit is reached, transition to the next section. "
-      "Return your output as a JSON object with exactly these keys: 'decisionNumber', 'currentSection', 'storyLeg', and 'options'. "
+      "Return your output as a JSON object with exactly these keys: 'storyTitle' 'decisionNumber', 'currentSection', 'storyLeg', and 'options'. "
       "The 'options' array must have exactly ${storyData.optionCount} entries.";
   final chat = model.startChat(history: history);
   final response = await chat.sendMessage(Content.text(instruction));
@@ -242,7 +244,7 @@ Future<Map<String, dynamic>> callGeminiAPIWithHistory(StoryData storyData, Strin
   
   try {
     Map<String, dynamic> jsonResponse = jsonDecode(resultText);
-    print("AI Response (Parsed JSON): ${jsonEncode(jsonResponse)}");
+    //print("AI Response (Parsed JSON): ${jsonEncode(jsonResponse)}");
     jsonResponse["decisionNumber"] = storyData.currentLeg;
     jsonResponse["isStoryComplete"] = (storyData.currentLeg >= (storyData.maxLegs ?? defaultMaxLegs));
     return jsonResponse;

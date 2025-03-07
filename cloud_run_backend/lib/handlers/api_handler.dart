@@ -40,7 +40,6 @@ Future<Response> _handleSaveStory(String userId, StoryData storyData) async {
   }
 }
 
-/// Returns a Shelf handler that manages your API endpoints.
 Handler createApiHandler() {
   return (Request request) async {
     cleanInactiveStories();
@@ -64,7 +63,10 @@ Handler createApiHandler() {
           "ai": leg.aiResponse,
         });
       }
-      return Response.ok(jsonEncode(conversation), headers: {'Content-Type': 'application/json'});
+      return Response.ok(
+        jsonEncode(conversation),
+        headers: {'Content-Type': 'application/json'},
+      );
     } else if (path == '/start_story' && request.method == 'POST') {
       try {
         final payload = await request.readAsString();
@@ -78,6 +80,7 @@ Handler createApiHandler() {
         
         initializeStory(storyData, decision, genre, setting, tone, maxLegs, optionCount);
         final Map<String, dynamic> aiJson = await callGeminiAPIWithHistory(storyData, decision);
+        print(aiJson['storyTitle']);
         appendStoryLeg(storyData, decision, aiJson);
         return Response.ok(
           jsonEncode({
@@ -116,6 +119,20 @@ Handler createApiHandler() {
       }
     } else if (path == '/save_story' && request.method == 'POST') {
       return await _handleSaveStory(userId, storyData);
+    } else if (path == '/saved_stories' && request.method == 'GET') {
+      try {
+        final savedStories = await getSavedStories(userId);
+        return Response.ok(
+          jsonEncode({'stories': savedStories}),
+          headers: {'Content-Type': 'application/json'},
+        );
+      } catch (e) {
+        print("Error retrieving saved stories for user $userId: $e");
+        return Response.internalServerError(
+          body: jsonEncode({'message': 'Error retrieving saved stories: $e'}),
+          headers: {'Content-Type': 'application/json'},
+        );
+      }
     } else {
       return Response.notFound('Route not found');
     }

@@ -11,6 +11,7 @@ class StoryLeg {
 /// Holds a user's story data including options, story legs, and context for section-based storytelling.
 class StoryData {
   List<StoryLeg> storyLegs = [];
+  String? storyTitle;
   String? genre;
   String? setting;
   String? tone;
@@ -41,6 +42,7 @@ class StoryData {
   // Convert StoryData to JSON for Firestore.
   Map<String, dynamic> toJson() {
     return {
+      'storyTitle': storyTitle,
       'genre': genre,
       'setting': setting,
       'tone': tone,
