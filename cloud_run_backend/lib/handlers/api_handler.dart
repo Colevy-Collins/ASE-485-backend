@@ -56,18 +56,34 @@ Handler createApiHandler() {
     storyData.lastActivity = DateTime.now();
     
     if (path == '/story' && request.method == 'GET') {
-      List<Map<String, dynamic>> conversation = [];
+      // Build the complete narrative by concatenating all AI responses.
+      String initialLeg = '';
+      print(storyData.storyLegs[1].aiResponse['storyLeg']);
       for (var leg in storyData.storyLegs) {
-        conversation.add({
-          "user": leg.userMessage,
-          "ai": leg.aiResponse,
-        });
+        if (leg.aiResponse['storyLeg'] != null) {
+          initialLeg += leg.aiResponse['storyLeg'] + '\n\n';
+        }
       }
+      print(initialLeg);
+      // Get the options from the last leg (if available).
+      List options = [];
+      if (storyData.storyLegs.isNotEmpty &&
+          storyData.storyLegs.last.aiResponse['options'] != null) {
+        options = storyData.storyLegs.last.aiResponse['options'];
+      }
+      // Use the stored story title; if not set, fall back to "Untitled Story".
+      String storyTitle = storyData.storyTitle ?? "Untitled Story";
+
       return Response.ok(
-        jsonEncode(conversation),
+        jsonEncode({
+          'initialLeg': initialLeg,
+          'options': options,
+          'storyTitle': storyTitle,
+        }),
         headers: {'Content-Type': 'application/json'},
       );
-    } else if (path == '/start_story' && request.method == 'POST') {
+    }
+    else if (path == '/start_story' && request.method == 'POST') {
       try {
         final payload = await request.readAsString();
         final data = jsonDecode(payload);
