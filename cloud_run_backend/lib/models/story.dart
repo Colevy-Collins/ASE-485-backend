@@ -6,7 +6,16 @@ class StoryLeg {
   Map<String, dynamic> aiResponse;
 
   StoryLeg({required this.userMessage, required this.aiResponse});
+
+  /// Factory constructor that creates a StoryLeg from a JSON map.
+  factory StoryLeg.fromJson(Map<String, dynamic> json) {
+    return StoryLeg(
+      userMessage: Map<String, dynamic>.from(json['userMessage'] ?? {}),
+      aiResponse: Map<String, dynamic>.from(json['aiResponse'] ?? {}),
+    );
+  }
 }
+
 
 /// Holds a user's story data including options, story legs, and context for section-based storytelling.
 class StoryData {
@@ -15,7 +24,6 @@ class StoryData {
   String? genre;
   String? setting;
   String? tone;
-  int? maxLegs;
   int? optionCount;
 
   // Section-based storytelling properties.
@@ -46,7 +54,7 @@ class StoryData {
       'genre': genre,
       'setting': setting,
       'tone': tone,
-      'maxLegs': maxLegs,
+      'optionCount': optionCount,
       'currentLeg': currentLeg,
       'currentSection': currentSection,
       'sectionSummaries': sectionSummaries,
@@ -57,4 +65,33 @@ class StoryData {
       'lastActivity': lastActivity?.toIso8601String(),
     };
   }
+
+  /// Updates the current StoryData instance with values from the provided JSON map.
+  void updateFromMap(Map<String, dynamic> map) {
+    storyTitle = map['storyTitle'] as String?;
+    genre = map['genre'] as String?;
+    setting = map['setting'] as String?;
+    tone = map['tone'] as String?;
+    optionCount = map['optionCount'] as int?;
+    currentLeg = map['currentLeg'] ?? 0;
+    currentSection = map['currentSection'] as String? ?? "Exposition";
+    sectionSummaries = map['sectionSummaries'] != null
+        ? List<String>.from(map['sectionSummaries'])
+        : [];
+    
+    if (map['storyLegs'] != null) {
+      storyLegs = (map['storyLegs'] as List<dynamic>)
+          .map((legmap) => StoryLeg.fromJson(Map<String, dynamic>.from(legmap)))
+          .toList();
+    }
+    
+    if (map['lastActivity'] == null) {
+      lastActivity = DateTime.tryParse(map['lastActivity'] as String);
+    }
+    
+    if (map['finalResolution'] != null) {
+      finalResolution = Map<String, dynamic>.from(map['finalResolution']);
+    }
+  }
+  
 }

@@ -83,7 +83,6 @@ class GeminiService {
     try {
       Map<String, dynamic> jsonResponse = jsonDecode(resultText);
       jsonResponse["decisionNumber"] = storyData.currentLeg;
-      jsonResponse["isStoryComplete"] = (storyData.currentLeg >= (storyData.maxLegs ?? 2));
       return jsonResponse;
     } catch (e) {
       throw Exception("Failed to parse AI response as JSON: $e. Response: $resultText");

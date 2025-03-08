@@ -6,12 +6,15 @@ import '../models/story.dart';
 class GetStoryController {
   Future<Response> handle(Request request, StoryData storyData) async {
     // Build the complete narrative by concatenating all AI responses.
-    String initialLeg = '';
-    for (var leg in storyData.storyLegs) {
-      if (leg.aiResponse['storyLeg'] != null) {
-        initialLeg += leg.aiResponse['storyLeg'] + '\n\n';
+      String initialLeg = '';
+      for (var leg in storyData.storyLegs) {
+        if (leg.userMessage['content'] != null && leg.userMessage['content'] != "Start Story") {
+          initialLeg += "Your Choice:" + leg.userMessage['content'] + '\n\n';
+        }
+        if (leg.aiResponse['storyLeg'] != null) {
+          initialLeg += leg.aiResponse['storyLeg'] + '\n\n';
+        }
       }
-    }
     // Get the options from the last leg (if available).
     List options = [];
     if (storyData.storyLegs.isNotEmpty &&

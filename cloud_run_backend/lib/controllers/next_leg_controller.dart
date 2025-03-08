@@ -14,12 +14,12 @@ class NextLegController {
       final payload = await request.readAsString();
       final data = jsonDecode(payload);
       final String decision = data['decision'] as String;
-
+      
       // Validate that required story options are set.
       if (storyData.genre == null ||
           storyData.setting == null ||
           storyData.tone == null ||
-          storyData.maxLegs == null) {
+          storyData.optionCount == null) {
         return Response.internalServerError(body: 'Story options not set.');
       }
       
@@ -28,6 +28,7 @@ class NextLegController {
           await _geminiService.callGeminiAPIWithHistory(storyData, decision);
       _storyManager.appendStoryLeg(storyData, decision, aiJson);
       
+      print(aiJson);
       return Response.ok(
         jsonEncode({
           'aiResponse': aiJson,

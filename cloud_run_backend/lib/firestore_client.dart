@@ -110,12 +110,20 @@ Future<List<Map<String, dynamic>>> getSavedStories(String userId) async {
   if (listResponse.documents != null) {
     for (var doc in listResponse.documents!) {
       if (doc.fields != null && doc.fields!["userId"]?.stringValue == userId) {
-        userStories.add(_convertFirestoreFields(doc.fields!));
+        // Convert document fields to a Dart Map.
+        Map<String, dynamic> story = _convertFirestoreFields(doc.fields!);
+        // Safely extract document ID from the full document name.
+        String docId = doc.name?.split("/").last ?? "";
+        // Add the document ID as "story_ID" to the story.
+        story["story_ID"] = docId;
+        userStories.add(story);
       }
     }
   }
   return userStories;
 }
+
+
 
 /// Helper function to convert Firestore document fields to a Dart Map.
 Map<String, dynamic> _convertFirestoreFields(Map<String, fs.Value> fields) {
@@ -145,3 +153,45 @@ dynamic _convertFromFirestoreValue(fs.Value value) {
   }
   return null;
 }
+
+/// Retrieves a single saved story by its document ID from Firestore.
+Future<Map<String, dynamic>> getSavedStoryById(String storyId) async {
+  final String projectId = "versatale-966fe";
+  final String basePath = "projects/$projectId/databases/(default)/documents";
+  final firestore = await getFirestoreApi();
+  
+  // Construct the document path for the saved story.
+  final String documentPath = "$basePath/saved_stories/$storyId";
+  
+  try {
+    final doc = await firestore.projects.databases.documents.get(documentPath);
+    if (doc.fields == null) {
+      throw Exception("Story not found.");
+    }
+    // Convert Firestore fields to a Dart Map.
+    Map<String, dynamic> story = _convertFirestoreFields(doc.fields!);
+    // Safely extract document ID and add it as "story_ID".
+    String docId = doc.name?.split("/").last ?? "";
+    story["story_ID"] = docId;
+    return story;
+  } catch (e) {
+    throw Exception("Error retrieving story: $e");
+  }
+}
+
+/// Deletes a saved story by its document ID from Firestore.
+Future<void> deleteSavedStory(String storyId) async {
+  final String projectId = "versatale-966fe";
+  final String basePath = "projects/$projectId/databases/(default)/documents";
+  final firestore = await getFirestoreApi();
+  
+  // Construct the document path for the saved story.
+  final String documentPath = "$basePath/saved_stories/$storyId";
+  print(storyId);
+  try {
+    await firestore.projects.databases.documents.delete(documentPath);
+  } catch (e) {
+    throw Exception("Error deleting story: $e");
+  }
+}
+

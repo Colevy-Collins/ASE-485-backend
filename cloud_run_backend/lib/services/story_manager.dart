@@ -14,7 +14,6 @@ class StoryManager {
     storyData.genre = genre.isNotEmpty ? genre : "Adventure";
     storyData.setting = setting.isNotEmpty ? setting : "Modern";
     storyData.tone = tone.isNotEmpty ? tone : "Suspenseful";
-    storyData.maxLegs = maxLegs > 0 ? maxLegs : 2;
     storyData.optionCount = optionCount > 0 ? optionCount : 2;
     storyData.currentSection = "Exposition";
     storyData.currentLeg = 0;
