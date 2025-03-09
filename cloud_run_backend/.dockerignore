@@ -12,3 +12,4 @@ build/
 .gitignore
 .packages
 serviceAccountKey.json
+secrets

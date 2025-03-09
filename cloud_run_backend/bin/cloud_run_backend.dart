@@ -8,9 +8,10 @@ import 'package:firebase_admin/firebase_admin.dart';
 
 void main() async {
   // Initialize Firebase Admin.
+  
   final app = FirebaseAdmin.instance.initializeApp(
     AppOptions(
-      credential: FirebaseAdmin.instance.certFromPath('serviceAccountKey.json'),
+      credential: FirebaseAdmin.instance.certFromPath('/secrets/serviceAccountKey.json'),
     ),
   );
   final auth = app.auth();
@@ -51,6 +52,8 @@ void main() async {
       .addMiddleware(verifyTokenMiddleware)
       .addHandler(apiHandler);
 
-  var server = await shelf_io.serve(handler, InternetAddress.anyIPv4, 8080);
+  final portStr = Platform.environment['PORT'] ?? '8080';
+  final port = int.tryParse(portStr) ?? 8080;
+  var server = await shelf_io.serve(handler, InternetAddress.anyIPv4, port);
   print('Server running on port ${server.port}');
 }

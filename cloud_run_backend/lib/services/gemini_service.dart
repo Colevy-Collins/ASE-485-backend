@@ -30,7 +30,7 @@ class GeminiService {
 
   // Calls the Gemini API using the built chat history.
   Future<Map<String, dynamic>> callGeminiAPIWithHistory(StoryData storyData, String decision) async {
-    final apiKey = Platform.environment['GEMINI_API_KEY'];
+    final apiKey = Platform.environment['GEMINI_API_KEY1'];
     if (apiKey == null) {
       throw Exception('No GEMINI_API_KEY environment variable');
     }
