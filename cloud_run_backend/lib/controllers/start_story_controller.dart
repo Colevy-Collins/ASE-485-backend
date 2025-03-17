@@ -13,16 +13,11 @@ class StartStoryController {
     try {
       final payload = await request.readAsString();
       final data = jsonDecode(payload);
-      final String decision = data['decision'] ?? "Start Story";
-      final String genre = data['genre'] ?? "Adventure";
-      final String setting = data['setting'] ?? "Modern";
-      final String tone = data['tone'] ?? "Suspenseful";
-      final int maxLegs = data['maxLegs'] ?? 2;
-      final int optionCount = data['optionCount'] ?? 2;
+      final decision = data['decision'] as String;
+
 
       // Initialize the story using the StoryManager.
-      _storyManager.initializeStory(
-          storyData, decision, genre, setting, tone, maxLegs, optionCount);
+      _storyManager.initializeStory(storyData, data);
       
       // Generate the first leg using GeminiService.
       final Map<String, dynamic> aiJson =

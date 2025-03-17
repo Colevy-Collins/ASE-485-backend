@@ -11,7 +11,8 @@ void main() async {
   
   final app = FirebaseAdmin.instance.initializeApp(
     AppOptions(
-      credential: FirebaseAdmin.instance.certFromPath('/secrets/serviceAccountKey.json'),
+      // add . before files for local host. 
+      credential: FirebaseAdmin.instance.certFromPath('./secrets/serviceAccountKey.json'),
     ),
   );
   final auth = app.auth();

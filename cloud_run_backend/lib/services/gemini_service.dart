@@ -34,16 +34,46 @@ class GeminiService {
     if (apiKey == null) {
       throw Exception('No GEMINI_API_KEY environment variable');
     }
+
+    final schema = Schema.object(
+      description: 'Story data object for the Gemini API.',
+      properties: {
+        'storyTitle': Schema.string(
+            description: 'A short title of the story.', nullable: false),
+        'decisionNumber': Schema.integer(
+            description: 'The current decision count or step number.',
+            nullable: false),
+        'currentSection': Schema.string(
+            description:
+                "The part of the narrative structure ('exposition', 'rising action', 'climax', 'falling action', or 'resolution').",
+            nullable: false),
+        'storyLeg': Schema.string(
+            description: 'The story content or narrative text for the current state.',
+            nullable: false),
+        'options': Schema.array(
+            description:
+                "An array of available choices, each starting with a numeric identifier (e.g., '1) ...', '2) ...').",
+            items: Schema.string(nullable: false))
+      },
+      requiredProperties: [
+        'storyTitle',
+        'decisionNumber',
+        'currentSection',
+        'storyLeg',
+        'options'
+      ],
+    );
     
     final model = GenerativeModel(
       model: 'gemini-2.0-flash',
       apiKey: apiKey,
       generationConfig: GenerationConfig(
-        temperature: 1,
+        temperature: 2,
         topK: 40,
         topP: 0.95,
         maxOutputTokens: 8192,
         responseMimeType: 'application/json',
+        responseSchema: schema,
       ),
     );
     
@@ -53,29 +83,33 @@ class GeminiService {
     int sectionLimit = storyData.sectionLegLimits[storyData.currentSection] ?? 2; // defaultMaxLegs = 2
 
     // Resolution section logic.
-    if (storyData.currentSection == "Resolution") {
+    print(storyData.currentSection);
+    print(storyData.currentLeg);
+    print(sectionLimit);
+
+    // For non-resolution sections, if leg limit is reached, handle section transition.
+    if (storyData.currentLeg >= sectionLimit && storyData.currentSection != "Final Resolution") {
+      await sectionManager.handleSectionTransition(storyData, model, history);
+    }
+
+    if (storyData.currentSection == "Final Resolution") {
       if (storyData.finalResolution != null) {
         return storyData.finalResolution!;
       } else {
         return await handleResolutionSection(storyData, history, model);
       }
-    } else {
-      // For non-resolution sections, if leg limit is reached, handle section transition.
-      if (storyData.currentLeg >= sectionLimit) {
-        await sectionManager.handleSectionTransition(storyData, model, history);
-      }
     }
 
     // Increment the leg counter.
-    if (storyData.currentSection != "Resolution" || storyData.finalResolution == null) {
+    if (storyData.currentSection != "Final Resolution" || storyData.finalResolution == null) {
       storyData.currentLeg++;
     }
     
     // Add an updated system prompt to the history.
+    print(storyData.currentSection);
     Map<String, dynamic> systemPrompt = promptGenerator.generateSystemPrompt(storyData);
-    history.add(Content.text(systemPrompt["content"]));
-
-    final instruction = promptGenerator.buildGeneralInstructions(storyData);
+    
+    final instruction = promptGenerator.buildGeneralInstructions(storyData) + systemPrompt["content"];
     final chat = model.startChat(history: history);
     final response = await chat.sendMessage(Content.text(instruction));
     final resultText = response.text ?? '';

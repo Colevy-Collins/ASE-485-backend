@@ -16,9 +16,16 @@ class NextLegController {
       final String decision = data['decision'] as String;
       
       // Validate that required story options are set.
-      if (storyData.genre == null ||
-          storyData.setting == null ||
-          storyData.tone == null ||
+      bool allValuesNonNull(Map<String, dynamic> map) {
+        return map.values.every((value) {
+          if (value is Map<String, dynamic>) {
+            return allValuesNonNull(value);
+          }
+          return value != null;
+        });
+      }
+
+      if (!allValuesNonNull(storyData.dimensions.toJson()) ||
           storyData.optionCount == null) {
         return Response.internalServerError(body: 'Story options not set.');
       }

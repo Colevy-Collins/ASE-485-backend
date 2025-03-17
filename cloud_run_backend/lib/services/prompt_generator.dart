@@ -4,29 +4,22 @@ class PromptGenerator {
  
   String buildGeneralInstructions(StoryData storyData){
 
-    return "Before generating the next story leg, reference previous decision numbers and section summaries. "
-        "Craft the next leg to move the story toward its conclusion. "
-        "When the current section's leg limit is reached, transition to the next section. "
-        "Return your output as a JSON object with exactly these keys: 'storyTitle', 'decisionNumber', 'currentSection', 'storyLeg', and 'options'. "
-        "The 'options' array must have exactly ${storyData.optionCount} entries.";
+    return "You are a DnD Dungeon Master guiding a player through an interactive story. You tell your story until you reach a decision  point from which you need a response from the player. Incorporate each of these dimensions in your story."
+              "1) Mark each wrong option with (!) so players can identify incorrect paths."
+              "2) Once three wrong choices are made in total, the story concludes in a tragic ending."
+              "3) Only present the number of options that are reasonable or relevant at each decision point."
+              "4) If the story has ended—tragically or otherwise—no further choices should be processed."
+              "5) When the story is in an ended state, display only one option labeled 'The story ends'.";
   }
 
     String buildFinalInstructions(StoryData storyData){
 
-    return "Review the past five story legs and the section summaries to ensure the resolution aligns with previous decisions and narrative points. "
-        "Generate the final leg that conclusively ends the story and takes the final user decision into account. "
-        "Return your output as a JSON object with exactly these keys: 'storyTitle', 'decisionNumber', 'currentSection', 'storyLeg', and 'options'. "
-        "The 'options' array must have exactly 1 entry, and that entry must be 'The story ends'.";
-  }
+    return "You are a DnD Dungeon Master guiding a player through an interactive story. You tell your story until you reach a decision  point from which you need a response from the player. Incorporate each of these dimensions in your story."
+              "1) This is the final prompt. The story ends here."
+              "2) Ensure that the story ends clearly and that the user's final decision is reflected."
+              "3) The story should conclude with a final resolution that reflects the user's choices and the consequences of their actions."
+              "4) This is the last story leg and there should only be one options which reads 'The story ends'.";
 
-  // Builds a string containing all section summaries.
-  String buildSummariesText(StoryData storyData) {
-    if (storyData.sectionSummaries.isNotEmpty) {
-      return "Summaries of previous sections:\n" +
-          storyData.sectionSummaries.join("\n") +
-          "\n";
-    }
-    return "";
   }
 
   // Returns the section-specific prompt based on the current section.
@@ -41,8 +34,9 @@ class PromptGenerator {
       case "Falling Action":
         return "Begin resolving the conflicts. Start tying up loose ends and reflecting on the climax.";
       case "Resolution":
-        return "This is the final leg of the story. Review past user decisions and story legs to create a conclusive ending that wraps up all conflicts. "
-            "Ensure that the story ends clearly and that the user's final decision is reflected. All options must be 'The story ends'.";
+        return "Ensure that the story ends clearly and that the user's final decision is reflected.";
+      case "Final Resolution":
+        return "Conclude the story with a final resolution that reflects the user's choices and the consequences of their actions. This is the last stroy leg and there should only be one options which reads 'The story ends'.";
       default:
         return "Continue the story.";
     }
@@ -50,20 +44,41 @@ class PromptGenerator {
 
   // Generates a system prompt for the current section.
   Map<String, dynamic> generateSystemPrompt(StoryData storyData) {
-    String summariesText = buildSummariesText(storyData);
     String sectionPrompt = getSectionPrompt(storyData);
     
-    return {
-      "role": "system",
-      "content": summariesText +
-          "You are an AI generating an interactive story divided into five sections: Exposition, Rising Action, Climax, Falling Action, and Resolution.\n"
-          "Current Section: ${storyData.currentSection}.\n"
-          "$sectionPrompt\n"
-          "Genre: ${storyData.genre ?? 'Adventure'}. Ensure all elements align with this genre.\n"
-          "Setting: ${storyData.setting ?? 'Modern'}. Fully immerse the user in this environment.\n"
-          "Tone & Style: ${storyData.tone ?? 'Suspenseful'}. Maintain a consistent writing style.\n"
-          "Each leg should contain at least 200 words.\n"
-          "Each leg should have ${storyData.optionCount} options for the user to choose from.\n"
-    };
+return {
+  "role": "system",
+  "content": 
+      "Current Section: ${storyData.currentSection}.\n"
+      "$sectionPrompt\n"
+      "Genre: ${storyData.dimensions.genre}. Ensure all elements align with this genre.\n"
+      "Setting: ${storyData.dimensions.place}. Fully immerse the user in this environment.\n"
+      "Time: ${storyData.dimensions.time}.\n"
+      "Physical Environment: ${storyData.dimensions.physicalEnvironment}.\n"
+      "Cultural & Social Context: ${storyData.dimensions.culturalAndSocialContext}.\n"
+      "Technology & Advancement: ${storyData.dimensions.technologyAndAdvancement}.\n"
+      "Mood & Atmosphere: ${storyData.dimensions.moodAndAtmosphere}.\n"
+      "World Building Details: ${storyData.dimensions.worldBuildingDetails}.\n"
+      "Tone: ${storyData.dimensions.tone}.\n"
+      "Style: ${storyData.dimensions.style}.\n"
+      "Perspective: ${storyData.dimensions.perspective}.\n"
+      "Difficulty: ${storyData.dimensions.difficulty}.\n"
+      "Protagonist Background: ${storyData.dimensions.protagonistBackground}.\n"
+      "Protagonist Abilities: ${storyData.dimensions.protagonistAbilities}.\n"
+      "Protagonist Personality: ${storyData.dimensions.protagonistPersonality}.\n"
+      "Protagonist Reputation: ${storyData.dimensions.protagonistReputation}.\n"
+      "Antagonist Development: ${storyData.dimensions.antagonistDevelopment}.\n"
+      "Theme: ${storyData.dimensions.theme}.\n"
+      "Encounter Variations: ${storyData.dimensions.encounterVariations}.\n"
+      "Moral Dilemmas: ${storyData.dimensions.moralDilemmas}.\n"
+      "Story Pacing: ${storyData.dimensions.storyPacing}.\n"
+      "Final Objective: ${storyData.dimensions.finalObjective}.\n"
+      "Consequences of Failure: ${storyData.dimensions.consequencesOfFailure}.\n"
+      "Decision Options: ${storyData.dimensions.decisionOptions}.\n"
+      "Puzzle & Final Challenge: ${storyData.dimensions.puzzleAndFinalChallenge}.\n"
+      "Fail States: ${storyData.dimensions.failStates}.\n"
+      "Each leg should contain at least 200 words.\n"
+      "Each leg should have at least ${storyData.optionCount} options for the user to choose from.\n"
+};
   }
 }
