@@ -9,6 +9,7 @@ import '../controllers/get_saved_stories_controller.dart';
 import '../controllers/view_story_controller.dart';
 import '../controllers/delete_story_controller.dart';
 import '../controllers/continue_story_controller.dart';
+import '../controllers/previous_leg_controller.dart';
 import '../utility/story_cleanup.dart';
 import '../services/story_storage.dart';
 
@@ -54,6 +55,8 @@ Handler createApiHandler() {
       return StartStoryController().handle(request, storyData);
     } else if (path == '/next_leg' && request.method == 'POST') {
       return NextLegController().handle(request, storyData);
+    } else if (path == '/previous_leg' && request.method == 'GET') {
+      return PreviousLegController().handle(request, storyData);
     } else if (path == '/save_story' && request.method == 'POST') {
       return SaveStoryController().handle(request, userId, storyData);
     } else if (path == '/saved_stories' && request.method == 'GET') {

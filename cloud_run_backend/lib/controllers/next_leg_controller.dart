@@ -35,7 +35,7 @@ class NextLegController {
           await _geminiService.callGeminiAPIWithHistory(storyData, decision);
       _storyManager.appendStoryLeg(storyData, decision, aiJson);
       
-      print(aiJson);
+      //print(aiJson);
       return Response.ok(
         jsonEncode({
           'aiResponse': aiJson,

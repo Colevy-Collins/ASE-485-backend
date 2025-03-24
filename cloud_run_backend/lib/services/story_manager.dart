@@ -16,92 +16,92 @@ class StoryManager {
     storyData.selectStrategyFromString(data["storyLength"]);
     storyData.dimensions = StoryDimensions(
       // Dimension 1 - Setting
-      time: (data["Dimension 1 - Setting"]?["1A - Time"] as String?) ??
+      time: (data["dimensions"]?["Setting"]?["1A - Time"] as String?) ??
           "A cyclical age that repeats after catastrophic events",
-      place: (data["Dimension 1 - Setting"]?["1B - Place"] as String?) ??
+      place: (data["dimensions"]?["Setting"]?["1B - Place"] as String?) ??
           "A labyrinthine underground city beneath ruins",
       physicalEnvironment:
-          (data["Dimension 1 - Setting"]?["1C - Physical Environment"] as String?) ??
+          (data["dimensions"]?["Setting"]?["1C - Physical Environment"] as String?) ??
               "Gravity-defying landscapes where directions shift unexpectedly",
       culturalAndSocialContext:
-          (data["Dimension 1 - Setting"]?["1D - Cultural & Social Context"] as String?) ??
+          (data["dimensions"]?["Setting"]?["1D - Cultural & Social Context"] as String?) ??
               "A theocratic realm governed by rigid religious dogma",
       technologyAndAdvancement:
-          (data["Dimension 1 - Setting"]?["1E - Technology & Level of Advancement"] as String?) ??
+          (data["dimensions"]?["Setting"]?["1E - Technology & Level of Advancement"] as String?) ??
               "Hybrid medieval and arcane technologies coexisting",
       moodAndAtmosphere:
-          (data["Dimension 1 - Setting"]?["1F - Mood & Atmosphere"] as String?) ??
+          (data["dimensions"]?["Setting"]?["1F - Mood & Atmosphere"] as String?) ??
               "Chaotic and unpredictable, shifting from calm to crisis",
       worldBuildingDetails:
-          (data["Dimension 1 - Setting"]?["1G - World-Building Details"] as String?) ??
+          (data["dimensions"]?["Setting"]?["1G - World-Building Details"] as String?) ??
               "Forbidden zones that alter reality in bizarre ways",
 
       // Dimension 2 - Genre
-      genre: (data["Dimension 2 - Genre"] as String?) ?? "Adventure",
+      genre: (data["dimensions"]?["Genre"] as String?) ?? "Adventure",
 
       // Dimension 3 - Tone
-      tone: (data["Dimension 3 - Tone"] as String?) ?? "Suspenseful",
+      tone: (data["dimensions"]?["Tone"] as String?) ?? "Suspenseful",
 
       // Dimension 4 - Style
-      style: (data["Dimension 4 - Style"] as String?) ??
+      style: (data["dimensions"]?["Style"] as String?) ??
           "Poetic, dreamlike prose focusing on atmosphere",
 
       // Dimension 5 - Perspective
-      perspective: (data["Dimension 5 - Perspective"] as String?) ??
+      perspective: (data["dimensions"]?["Perspective"] as String?) ??
           "Unreliable narrator with possible hidden motives",
 
       // Dimension 6 - Difficulty (Encounters & Challenges)
-      difficulty: (data["Dimension 6 - Difficulty (Encounters & Challenges)"] as String?) ??
+      difficulty: (data["dimensions"]?["Difficulty (Encounters & Challenges)"] as String?) ??
           "Encounters that can be bypassed via stealth or diplomacy",
 
       // Dimension 7 - Protagonist Customization
-      protagonistBackground: (data["Dimension 7 - Protagonist Customization"]?["Background"] as String?) ??
+      protagonistBackground: (data["dimensions"]?["Protagonist Customization"]?["Background"] as String?) ??
           "Summoned outsider from a parallel reality",
-      protagonistAbilities: (data["Dimension 7 - Protagonist Customization"]?["Abilities"] as String?) ??
+      protagonistAbilities: (data["dimensions"]?["Protagonist Customization"]?["Abilities"] as String?) ??
           "Psionic talents for telepathy or telekinesis",
-      protagonistPersonality: (data["Dimension 7 - Protagonist Customization"]?["Personality"] as String?) ??
+      protagonistPersonality: (data["dimensions"]?["Protagonist Customization"]?["Personality"] as String?) ??
           "Quiet observer with an iron will",
-      protagonistReputation: (data["Dimension 7 - Protagonist Customization"]?["Reputation"] as String?) ??
+      protagonistReputation: (data["dimensions"]?["Protagonist Customization"]?["Reputation"] as String?) ??
           "Enigmatic wanderer whose deeds are whispered about",
 
       // Dimension 8 - Antagonist Development
-      antagonistDevelopment: (data["Dimension 8 - Antagonist Development"] as String?) ??
+      antagonistDevelopment: (data["dimensions"]?["Antagonist Development"] as String?) ??
           "A shadowy mastermind manipulating events behind the scenes",
 
       // Dimension 9 - Theme
-      theme: (data["Dimension 9 - Theme"] as String?) ?? "Fate versus free will",
+      theme: (data["dimensions"]?["Theme"] as String?) ?? "Fate versus free will",
 
       // Dimension 10 - Encounter Variations
-      encounterVariations: (data["Dimension 10 - Encounter Variations"] as String?) ??
+      encounterVariations: (data["dimensions"]?["Encounter Variations"] as String?) ??
           "Spiritual or psychic showdowns in dreamlike realms",
 
       // Dimension 11 - Moral Dilemmas
-      moralDilemmas: (data["Dimension 11 - Moral Dilemmas"] as String?) ??
+      moralDilemmas: (data["dimensions"]?["Moral Dilemmas"] as String?) ??
           "Using forbidden power at the risk of corruption",
 
       // Dimension 12 - Story Pacing
-      storyPacing: (data["Dimension 12 - Story Pacing"] as String?) ??
+      storyPacing: (data["dimensions"]?["Story Pacing"] as String?) ??
           "Constant tension with short-lived calm moments",
 
       // Dimension 13 - Final Objective
-      finalObjective: (data["Dimension 13 - Final Objective"] as String?) ??
+      finalObjective: (data["dimensions"]?["Final Objective"] as String?) ??
           "Restoring balance to an ailing ecosystem or realm",
 
       // Dimension 14 - Consequences of Failure
-      consequencesOfFailure: (data["Dimension 14 - Consequences of Failure"] as String?) ??
+      consequencesOfFailure: (data["dimensions"]?["Consequences of Failure"] as String?) ??
           "Permanent corruption twisting the hero or the land",
 
       // Dimension 15 - Decision Options
-      decisionOptions: (data["Dimension 15 - Decision Options"] as String?) ??
+      decisionOptions: (data["dimensions"]?["Decision Options"] as String?) ??
           "Subtle shifts in outcomes based on moral or ethical stances",
 
       // Dimension 16 - Puzzle & Final Challenge
       puzzleAndFinalChallenge:
-          (data["Dimension 16 - Puzzle & Final Challenge (Abstract, Turn-Based, Good vs. Fail Ending, No Story Elements)"] as String?) ??
+          (data["dimensions"]?["Puzzle & Final Challenge"] as String?) ??
               "A branching-path decision maze where each turn offers multiple routes. Choosing a consistent path with correct logic yields the good ending, but straying into dead-ends accumulates errors, concluding in a fail ending.",
 
       // Dimension 17 - Fail States
-      failStates: (data["Dimension 17 - Fail States"] as String?) ??
+      failStates: (data["dimensions"]?["Fail States"] as String?) ??
           "Escalating corruption that twists the protagonist’s motives, culminating in a self-inflicted collapse or villainous turn",
     );
 
@@ -141,4 +141,23 @@ class StoryManager {
     }
     return history;
   }
+
+  /// Removes the last story leg from the story, effectively rolling back one step.
+  /// Throws a StateError if there is only one leg in the list (the initial prompt).
+  void removeLastStoryLeg(StoryData storyData) {
+    // If there's only 1 leg, it's presumably the initial/system prompt.
+    if (storyData.storyLegs.length <= 2) {
+      throw StateError("Cannot remove the last story leg because only one leg remains.");
+    }
+
+    // Remove the most recent story leg.
+    storyData.storyLegs.removeLast();
+
+    // Update the storyTitle to whatever the new last leg's AI response has.
+    final lastLeg = storyData.storyLegs.last;
+    if (lastLeg.aiResponse.containsKey("storyTitle")) {
+      storyData.storyTitle = lastLeg.aiResponse["storyTitle"];
+    }
+  }
+
 }

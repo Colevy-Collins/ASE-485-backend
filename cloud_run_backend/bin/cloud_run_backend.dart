@@ -12,7 +12,7 @@ void main() async {
   final app = FirebaseAdmin.instance.initializeApp(
     AppOptions(
       // add . before files for local host. 
-      credential: FirebaseAdmin.instance.certFromPath('./secrets/serviceAccountKey.json'),
+      credential: FirebaseAdmin.instance.certFromPath('/secrets/serviceAccountKey.json'),
     ),
   );
   final auth = app.auth();
