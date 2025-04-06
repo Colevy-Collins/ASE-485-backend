@@ -4,7 +4,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:googleapis/firestore/v1.dart' as fs;
 import 'package:googleapis_auth/auth_io.dart';
-import '../utility/custom_exceptions.dart';
+import 'utility/custom_exceptions.dart';
 
 const int maxSaveStories = 1;
 
