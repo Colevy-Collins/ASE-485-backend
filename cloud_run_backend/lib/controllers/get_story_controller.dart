@@ -2,10 +2,12 @@
 import 'dart:convert';
 import 'package:shelf/shelf.dart';
 import '../models/story.dart';
+import '../utility/custom_exceptions.dart';
 
 class GetStoryController {
   Future<Response> handle(Request request, StoryData storyData) async {
     // Build the complete narrative by concatenating all AI responses.
+    try {
       String initialLeg = '';
       for (var leg in storyData.storyLegs) {
         if (leg.userMessage['content'] != null && leg.userMessage['content'] != "Start Story") {
@@ -32,5 +34,22 @@ class GetStoryController {
       }),
       headers: {'Content-Type': 'application/json'},
     );
+        } catch (e, st) {
+      // If it’s one of your custom StoryExceptions, use its 'message' property.
+      if (e is StoryException) {
+        print("Error retrieving story: ${e.message}\nStackTrace: $st");
+        return Response.internalServerError(
+          body: jsonEncode({'message': 'Error retrieving story: ${e.message}'}),
+          headers: {'Content-Type': 'application/json'},
+        );
+      }
+
+      // Otherwise, it's some other (non-custom) error. 
+      print("Error retrieving story: $e\nStackTrace: $st");
+      return Response.internalServerError(
+        body: jsonEncode({'message': 'Error retrieving story: $e'}),
+        headers: {'Content-Type': 'application/json'},
+      );
+    }
   }
 }

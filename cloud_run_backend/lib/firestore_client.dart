@@ -1,11 +1,13 @@
+// firestore_client.dart
+
 import 'dart:convert';
 import 'dart:io';
 import 'package:googleapis/firestore/v1.dart' as fs;
 import 'package:googleapis_auth/auth_io.dart';
-  // Define maximum allowed stories per user.
-  const int maxSaveStories = 1;
+import '../utility/custom_exceptions.dart';
 
-/// Converts a Map<String, dynamic> to a Map<String, fs.Value> that Firestore expects.
+const int maxSaveStories = 1;
+
 Map<String, fs.Value> convertToFirestoreFields(Map<String, dynamic> data) {
   final Map<String, fs.Value> fields = {};
   data.forEach((key, value) {
@@ -14,7 +16,6 @@ Map<String, fs.Value> convertToFirestoreFields(Map<String, dynamic> data) {
   return fields;
 }
 
-/// Helper to convert dynamic value to fs.Value.
 fs.Value _convertValue(dynamic value) {
   if (value is String) {
     return fs.Value(stringValue: value);
@@ -40,101 +41,130 @@ fs.Value _convertValue(dynamic value) {
   return fs.Value(); // For null or unsupported types.
 }
 
-/// Returns an authenticated FirestoreApi client.
+/// Gets a Google Firestore API client via Service Account credentials.
 Future<fs.FirestoreApi> getFirestoreApi() async {
   final serviceAccountJson = Platform.environment['SERVICE_ACCOUNT_JSON'];
   if (serviceAccountJson == null) {
-    throw Exception('SERVICE_ACCOUNT_JSON environment variable is not set.');
+    throw MissingServiceAccountJsonException();
   }
+
+  try {
+    final accountCredentials = ServiceAccountCredentials.fromJson(serviceAccountJson);
+    const scopes = [fs.FirestoreApi.datastoreScope];
+    final client = await clientViaServiceAccount(accountCredentials, scopes);
+    return fs.FirestoreApi(client);
   
-  final accountCredentials = ServiceAccountCredentials.fromJson(serviceAccountJson);
-  const scopes = [fs.FirestoreApi.datastoreScope];
-  var client = await clientViaServiceAccount(accountCredentials, scopes);
-  return fs.FirestoreApi(client);
+  } on SocketException catch (e, st) {
+    print("SocketException in getFirestoreApi: $e\n$st");
+    throw ServerUnavailableException();
+  } on FormatException catch (e, st) {
+    print("FormatException in getFirestoreApi: $e\n$st");
+    throw StoryJsonParsingException();
+  } catch (e, st) {
+    print("Unexpected error in getFirestoreApi: $e\n$st");
+    throw StoryException();
+  }
 }
 
-/// Saves the story data to Firestore under the "saved_stories" collection.
-/// Limits the number of stories per user to a predefined maximum.
 Future<void> saveStory(String userId, Map<String, dynamic> storyJson) async {
-  // Add userId to the story data so we can filter later.
   storyJson['userId'] = userId;
-  
   final String projectId = "versatale-966fe";
-  // Parent path for documents.
   final String basePath = "projects/$projectId/databases/(default)/documents";
-  
-  final firestore = await getFirestoreApi();
-  
-  // List all documents in the "saved_stories" collection.
-  final listResponse = await firestore.projects.databases.documents.list(basePath, "saved_stories");
-  
-  int userStoryCount = 0;
-  if (listResponse.documents != null) {
-    for (var doc in listResponse.documents!) {
-      // Check if the document belongs to this user by its "userId" field.
-      if (doc.fields != null && doc.fields!["userId"]?.stringValue == userId) {
-        userStoryCount++;
+
+  fs.FirestoreApi firestore;
+  try {
+    firestore = await getFirestoreApi();
+  } catch (e) {
+    rethrow; // Already mapped
+  }
+
+  try {
+    // In a real app using cloud_firestore directly, you'd do:
+    // FirebaseFirestore.instance.collection('saved_stories').get() etc.
+    // For your googleapis version, you do:
+    final listResponse = await firestore.projects.databases.documents.list(
+      basePath, 
+      "saved_stories",
+    );
+
+    int userStoryCount = 0;
+    if (listResponse.documents != null) {
+      for (var doc in listResponse.documents!) {
+        if (doc.fields != null && doc.fields!["userId"]?.stringValue == userId) {
+          userStoryCount++;
+        }
       }
     }
-  }
-  
 
-  if (userStoryCount >= maxSaveStories) {
-    throw Exception("User has reached the maximum number of saved stories ($maxSaveStories).");
+    if (userStoryCount >= maxSaveStories) {
+      throw MaxUserStoriesException();
+    }
+
+    final fields = convertToFirestoreFields(storyJson);
+    final document = fs.Document(fields: fields);
+
+    final String documentId = "$userId-${DateTime.now().millisecondsSinceEpoch}";
+    final String documentPath = "$basePath/saved_stories/$documentId";
+
+    // Save/patch
+    await firestore.projects.databases.documents.patch(document, documentPath);
+
+  } on SocketException catch (e, st) {
+    print("SocketException in saveStory: $e\n$st");
+    throw ServerUnavailableException();
+  } on FormatException catch (e, st) {
+    print("FormatException in saveStory: $e\n$st");
+    throw StoryJsonParsingException();
+  } catch (e, st) {
+    print("Unexpected error in saveStory: $e\n$st");
+    throw StoryException();
   }
-  
-  // Convert storyJson to Firestore fields.
-  final fields = convertToFirestoreFields(storyJson);
-  fs.Document document = fs.Document(fields: fields);
-  
-  // Generate a unique document ID using the userId and current timestamp.
-  final String documentId = "$userId-${DateTime.now().millisecondsSinceEpoch}";
-  final String documentPath = "$basePath/saved_stories/$documentId";
-  
-  // Use the patch method to create (or update) the document.
-  await firestore.projects.databases.documents.patch(
-    document,
-    documentPath,
-  );
 }
 
-/// Retrieves all saved stories for a given user from Firestore.
 Future<List<Map<String, dynamic>>> getSavedStories(String userId) async {
   final String projectId = "versatale-966fe";
   final String basePath = "projects/$projectId/databases/(default)/documents";
   final firestore = await getFirestoreApi();
 
-  // List documents in the "saved_stories" collection.
-  final listResponse = await firestore.projects.databases.documents.list(basePath, "saved_stories");
-  List<Map<String, dynamic>> userStories = [];
-  if (listResponse.documents != null) {
-    for (var doc in listResponse.documents!) {
-      if (doc.fields != null && doc.fields!["userId"]?.stringValue == userId) {
-        // Convert document fields to a Dart Map.
-        Map<String, dynamic> story = _convertFirestoreFields(doc.fields!);
-        // Safely extract document ID from the full document name.
-        String docId = doc.name?.split("/").last ?? "";
-        // Add the document ID as "story_ID" to the story.
-        story["story_ID"] = docId;
-        userStories.add(story);
+  try {
+    final listResponse = await firestore.projects.databases.documents.list(
+      basePath,
+      "saved_stories",
+    );
+    final List<Map<String, dynamic>> userStories = [];
+
+    if (listResponse.documents != null) {
+      for (var doc in listResponse.documents!) {
+        if (doc.fields != null && doc.fields!["userId"]?.stringValue == userId) {
+          final story = _convertFirestoreFields(doc.fields!);
+          final docId = doc.name?.split("/").last ?? "";
+          story["story_ID"] = docId;
+          userStories.add(story);
+        }
       }
     }
+    return userStories;
+
+  } on SocketException catch (e, st) {
+    print("SocketException in getSavedStories: $e\n$st");
+    throw ServerUnavailableException();
+  } on FormatException catch (e, st) {
+    print("FormatException in getSavedStories: $e\n$st");
+    throw StoryJsonParsingException();
+  } catch (e, st) {
+    print("Unexpected error in getSavedStories: $e\n$st");
+    throw StoryException();
   }
-  return userStories;
 }
 
-
-
-/// Helper function to convert Firestore document fields to a Dart Map.
 Map<String, dynamic> _convertFirestoreFields(Map<String, fs.Value> fields) {
-  Map<String, dynamic> result = {};
+  final Map<String, dynamic> result = {};
   fields.forEach((key, value) {
     result[key] = _convertFromFirestoreValue(value);
   });
   return result;
 }
 
-/// Helper function to convert a Firestore Value to a native Dart type.
 dynamic _convertFromFirestoreValue(fs.Value value) {
   if (value.stringValue != null) {
     return value.stringValue;
@@ -154,44 +184,51 @@ dynamic _convertFromFirestoreValue(fs.Value value) {
   return null;
 }
 
-/// Retrieves a single saved story by its document ID from Firestore.
 Future<Map<String, dynamic>> getSavedStoryById(String storyId) async {
   final String projectId = "versatale-966fe";
   final String basePath = "projects/$projectId/databases/(default)/documents";
   final firestore = await getFirestoreApi();
-  
-  // Construct the document path for the saved story.
   final String documentPath = "$basePath/saved_stories/$storyId";
-  
+
   try {
     final doc = await firestore.projects.databases.documents.get(documentPath);
     if (doc.fields == null) {
-      throw Exception("Story not found.");
+      throw StoryException('Story not found.');
     }
-    // Convert Firestore fields to a Dart Map.
-    Map<String, dynamic> story = _convertFirestoreFields(doc.fields!);
-    // Safely extract document ID and add it as "story_ID".
-    String docId = doc.name?.split("/").last ?? "";
+
+    final story = _convertFirestoreFields(doc.fields!);
+    final docId = doc.name?.split("/").last ?? "";
     story["story_ID"] = docId;
     return story;
-  } catch (e) {
-    throw Exception("Error retrieving story: $e");
+
+  } on SocketException catch (e, st) {
+    print("SocketException in getSavedStoryById: $e\n$st");
+    throw ServerUnavailableException();
+  } on FormatException catch (e, st) {
+    print("FormatException in getSavedStoryById: $e\n$st");
+    throw StoryJsonParsingException();
+  } catch (e, st) {
+    print("Unexpected error in getSavedStoryById: $e\n$st");
+    throw StoryException();
   }
 }
 
-/// Deletes a saved story by its document ID from Firestore.
 Future<void> deleteSavedStory(String storyId) async {
   final String projectId = "versatale-966fe";
   final String basePath = "projects/$projectId/databases/(default)/documents";
   final firestore = await getFirestoreApi();
-  
-  // Construct the document path for the saved story.
   final String documentPath = "$basePath/saved_stories/$storyId";
-  print(storyId);
+
   try {
     await firestore.projects.databases.documents.delete(documentPath);
-  } catch (e) {
-    throw Exception("Error deleting story: $e");
+  } on SocketException catch (e, st) {
+    print("SocketException in deleteSavedStory: $e\n$st");
+    throw ServerUnavailableException();
+  } on FormatException catch (e, st) {
+    print("FormatException in deleteSavedStory: $e\n$st");
+    throw StoryJsonParsingException();
+  } catch (e, st) {
+    print("Unexpected error in deleteSavedStory: $e\n$st");
+    throw StoryException();
   }
 }
-

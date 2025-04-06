@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:shelf/shelf.dart';
 import '../firestore_client.dart';
 import '../models/story.dart';
+import '../utility/custom_exceptions.dart';
 
 class ContinueStoryController {
   Future<Response> handle(Request request, String storyId, StoryData storyData) async {
@@ -47,8 +48,18 @@ class ContinueStoryController {
         }),
         headers: {'Content-Type': 'application/json'},
       );
-    } catch (e) {
-      print("Error continuing story: $e");
+    } catch (e, st) {
+  // If it’s one of your custom StoryExceptions, use its 'message' property.
+      if (e is StoryException) {
+        print("Error continuing story: ${e.message}\nStackTrace: $st");
+        return Response.internalServerError(
+          body: jsonEncode({'message': 'Error continuing story: ${e.message}'}),
+          headers: {'Content-Type': 'application/json'},
+        );
+      }
+
+      // Otherwise, it's some other (non-custom) error. 
+      print("Error continuing story: $e\nStackTrace: $st");
       return Response.internalServerError(
         body: jsonEncode({'message': 'Error continuing story: $e'}),
         headers: {'Content-Type': 'application/json'},

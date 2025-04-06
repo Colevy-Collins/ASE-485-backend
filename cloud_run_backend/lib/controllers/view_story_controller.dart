@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:shelf/shelf.dart';
 import '../firestore_client.dart';
 import '../models/story.dart';
+import '../utility/custom_exceptions.dart';
 
 class ViewStoryController {
   Future<Response> handle(Request request, String storyId) async {
@@ -43,10 +44,20 @@ class ViewStoryController {
         }),
         headers: {'Content-Type': 'application/json'},
       );
-    } catch (e) {
-      print("Error viewing story: $e");
+    } catch (e, st) {
+      // If it’s one of your custom StoryExceptions, use its 'message' property.
+      if (e is StoryException) {
+        print("Error retrieving story preview: ${e.message}\nStackTrace: $st");
+        return Response.internalServerError(
+          body: jsonEncode({'message': 'Error retrieving story preview: ${e.message}'}),
+          headers: {'Content-Type': 'application/json'},
+        );
+      }
+
+      // Otherwise, it's some other (non-custom) error. 
+      print("Error retrieving story preview: $e\nStackTrace: $st");
       return Response.internalServerError(
-        body: jsonEncode({'message': 'Error viewing story: $e'}),
+        body: jsonEncode({'message': 'Error retrieving story preview: $e'}),
         headers: {'Content-Type': 'application/json'},
       );
     }

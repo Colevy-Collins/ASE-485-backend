@@ -4,6 +4,7 @@ import 'package:shelf/shelf.dart';
 import '../models/story.dart';
 import '../services/story_manager.dart';
 import '../services/gemini_service.dart';
+import '../utility/custom_exceptions.dart';
 
 class NextLegController {
   final StoryManager _storyManager = StoryManager();
@@ -43,9 +44,22 @@ class NextLegController {
         }),
         headers: {'Content-Type': 'application/json'},
       );
-    } catch (e) {
-      print('Error processing /next_leg request: $e');
-      return Response.internalServerError(body: 'Error processing request: $e');
+    } catch (e, st) {
+      // If it’s one of your custom StoryExceptions, use its 'message' property.
+      if (e is StoryException) {
+        print("Error retrieving next leg: ${e.message}\nStackTrace: $st");
+        return Response.internalServerError(
+          body: jsonEncode({'message': 'Error retrieving next leg: ${e.message}'}),
+          headers: {'Content-Type': 'application/json'},
+        );
+      }
+
+      // Otherwise, it's some other (non-custom) error. 
+      print("Error retrieving next leg: $e\nStackTrace: $st");
+      return Response.internalServerError(
+        body: jsonEncode({'message': 'Error retrieving next leg: $e'}),
+        headers: {'Content-Type': 'application/json'},
+      );
     }
   }
 }

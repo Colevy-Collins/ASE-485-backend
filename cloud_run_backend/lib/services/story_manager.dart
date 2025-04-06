@@ -1,6 +1,10 @@
+// story_manager.dart
+
 import '../models/story.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
 import 'prompt_generator.dart';
+// Import our custom exceptions
+import '../utility/custom_exceptions.dart';
 
 class StoryManager {
   final PromptGenerator promptGenerator;
@@ -12,10 +16,8 @@ class StoryManager {
   /// For each dimension and variable, the value from data is used if available,
   /// otherwise a default value is applied.
   void initializeStory(StoryData storyData, Map<String, dynamic> data) {
-    //print(data["storyLength"]);
     storyData.selectStrategyFromString(data["storyLength"]);
     storyData.dimensions = StoryDimensions(
-      // Dimension 1 - Setting
       time: (data["dimensions"]?["Setting"]?["1A - Time"] as String?) ??
           "A cyclical age that repeats after catastrophic events",
       place: (data["dimensions"]?["Setting"]?["1B - Place"] as String?) ??
@@ -55,14 +57,18 @@ class StoryManager {
           "Encounters that can be bypassed via stealth or diplomacy",
 
       // Dimension 7 - Protagonist Customization
-      protagonistBackground: (data["dimensions"]?["Protagonist Customization"]?["Background"] as String?) ??
-          "Summoned outsider from a parallel reality",
-      protagonistAbilities: (data["dimensions"]?["Protagonist Customization"]?["Abilities"] as String?) ??
-          "Psionic talents for telepathy or telekinesis",
-      protagonistPersonality: (data["dimensions"]?["Protagonist Customization"]?["Personality"] as String?) ??
-          "Quiet observer with an iron will",
-      protagonistReputation: (data["dimensions"]?["Protagonist Customization"]?["Reputation"] as String?) ??
-          "Enigmatic wanderer whose deeds are whispered about",
+      protagonistBackground:
+          (data["dimensions"]?["Protagonist Customization"]?["Background"] as String?) ??
+              "Summoned outsider from a parallel reality",
+      protagonistAbilities:
+          (data["dimensions"]?["Protagonist Customization"]?["Abilities"] as String?) ??
+              "Psionic talents for telepathy or telekinesis",
+      protagonistPersonality:
+          (data["dimensions"]?["Protagonist Customization"]?["Personality"] as String?) ??
+              "Quiet observer with an iron will",
+      protagonistReputation:
+          (data["dimensions"]?["Protagonist Customization"]?["Reputation"] as String?) ??
+              "Enigmatic wanderer whose deeds are whispered about",
 
       // Dimension 8 - Antagonist Development
       antagonistDevelopment: (data["dimensions"]?["Antagonist Development"] as String?) ??
@@ -98,14 +104,14 @@ class StoryManager {
       // Dimension 16 - Puzzle & Final Challenge
       puzzleAndFinalChallenge:
           (data["dimensions"]?["Puzzle & Final Challenge"] as String?) ??
-              "A branching-path decision maze where each turn offers multiple routes. Choosing a consistent path with correct logic yields the good ending, but straying into dead-ends accumulates errors, concluding in a fail ending.",
+              "A branching-path decision maze where each turn offers multiple routes. "
+              "Choosing a consistent path with correct logic yields the good ending, but straying into dead-ends accumulates errors, concluding in a fail ending.",
 
       // Dimension 17 - Fail States
       failStates: (data["dimensions"]?["Fail States"] as String?) ??
           "Escalating corruption that twists the protagonist’s motives, culminating in a self-inflicted collapse or villainous turn",
     );
 
-    // Set additional story-level properties from data, or use defaults.
     storyData.optionCount = (data["optionCount"] as int?) ?? 2;
     storyData.currentSection = (data["currentSection"] as String?) ?? "Exposition";
     storyData.currentLeg = (data["currentLeg"] as int?) ?? 0;
@@ -143,11 +149,16 @@ class StoryManager {
   }
 
   /// Removes the last story leg from the story, effectively rolling back one step.
-  /// Throws a StateError if there is only one leg in the list (the initial prompt).
+  /// Throws an InvalidStoryOperationException if there is only one leg in the list (the initial prompt).
   void removeLastStoryLeg(StoryData storyData) {
     // If there's only 1 leg, it's presumably the initial/system prompt.
     if (storyData.storyLegs.length <= 2) {
-      throw StateError("Cannot remove the last story leg because only one leg remains.");
+      // Old: throw StateError("Cannot remove the last story leg because only one leg remains.");
+      throw InvalidStoryOperationException(
+        // Using a custom message from ErrorStrings if you want
+        // (but here we’ll just use a hard-coded message for clarity).
+        "Cannot remove the last story leg because only one leg remains."
+      );
     }
 
     // Remove the most recent story leg.
@@ -159,5 +170,4 @@ class StoryManager {
       storyData.storyTitle = lastLeg.aiResponse["storyTitle"];
     }
   }
-
 }
