@@ -10,6 +10,10 @@ import '../controllers/view_story_controller.dart';
 import '../controllers/delete_story_controller.dart';
 import '../controllers/continue_story_controller.dart';
 import '../controllers/previous_leg_controller.dart';
+import '../controllers/get_profile_data_controller.dart';
+import '../controllers/delete_user_data_controller.dart';
+import '../controllers/delete_all_stories_controller.dart';
+import '../controllers/update_last_access_controller.dart';
 import '../utility/story_cleanup.dart';
 import '../services/story_storage.dart';
 
@@ -74,6 +78,14 @@ Handler createApiHandler() {
       final storyId = await extractStoryId(request);
       if (storyId == null) return Response.badRequest(body: 'Missing storyId');
       return ContinueStoryController().handle(request, storyId, storyData);
+    } else if (path == '/profile' && request.method == 'GET') {
+      return GetProfileDataController().handle(request, userId);
+    } else if (path == '/delete_user_data' && request.method == 'POST') {
+      return DeleteUserDataController().handle(request, userId);
+    } else if (path == '/delete_all_stories' && request.method == 'POST') {
+      return DeleteAllStoriesController().handle(request, userId);
+    } else if (path == '/update_last_access' && request.method == 'POST') {
+      return UpdateLastAccessController().handle(request, userId, DateTime.now());
     } else {
       return Response.notFound('Route not found');
     }

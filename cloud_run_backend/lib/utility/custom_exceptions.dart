@@ -5,7 +5,7 @@ class ErrorStrings {
   static const missingGeminiApiKey = 'No GEMINI_API_KEY environment variable.';
   static const storyJsonParsingFailed = 'Failed to parse AI response as JSON.';
   static const missingServiceAccountJson = 'SERVICE_ACCOUNT_JSON environment variable is not set.';
-  static const maxUserStoriesReached = 'User has reached the maximum number of saved stories.';
+  static const maxUserStoriesReached = 'You have reached the maximum number of saved stories. Please delete some stories to continue.';
   static const cannotRemoveLastStoryLeg = 'Cannot remove the last story leg because only one leg remains.';
   static const thirdPartyServiceUnavailable = 'A required third-party service is currently unavailable.';
   static const serverUnavailable = 'The server is currently unreachable.';

@@ -284,7 +284,7 @@ class StoryData {
             'userMessage': leg.userMessage,
             'aiResponse': leg.aiResponse,
           }).toList(),
-      'lastActivity': lastActivity?.toIso8601String(),
+      'lastActivity': lastActivity?.toUtc().toIso8601String(),
     };
   }
 

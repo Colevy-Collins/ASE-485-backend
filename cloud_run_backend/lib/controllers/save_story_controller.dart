@@ -19,7 +19,7 @@ class SaveStoryController {
       if (e is StoryException) {
         print("Error saving the story: ${e.message}\nStackTrace: $st");
         return Response.internalServerError(
-          body: jsonEncode({'message': 'Error saving the story: ${e.message}'}),
+          body: jsonEncode({'message':e.message}),
           headers: {'Content-Type': 'application/json'},
         );
       }

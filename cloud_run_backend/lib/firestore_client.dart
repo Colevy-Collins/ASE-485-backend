@@ -44,6 +44,7 @@ fs.Value _convertValue(dynamic value) {
 /// Gets a Google Firestore API client via Service Account credentials.
 Future<fs.FirestoreApi> getFirestoreApi() async {
   final serviceAccountJson = Platform.environment['SERVICE_ACCOUNT_JSON'];
+
   if (serviceAccountJson == null) {
     throw MissingServiceAccountJsonException();
   }
@@ -115,6 +116,9 @@ Future<void> saveStory(String userId, Map<String, dynamic> storyJson) async {
   } on FormatException catch (e, st) {
     print("FormatException in saveStory: $e\n$st");
     throw StoryJsonParsingException();
+  } on MaxUserStoriesException catch (e, st) {
+    print("MaxUserStoriesException in saveStory: User $userId has too many stories.\n$st");
+    throw MaxUserStoriesException();
   } catch (e, st) {
     print("Unexpected error in saveStory: $e\n$st");
     throw StoryException();
@@ -230,5 +234,149 @@ Future<void> deleteSavedStory(String storyId) async {
   } catch (e, st) {
     print("Unexpected error in deleteSavedStory: $e\n$st");
     throw StoryException();
+  }
+}
+
+
+Future<void> createOrUpdateUserData(String userId, {required DateTime lastAccessDate}) async {
+  final String projectId = "versatale-966fe"; // Update to your actual project ID
+  final String basePath = "projects/$projectId/databases/(default)/documents";
+  final firestore = await getFirestoreApi();
+
+  // Document path: user_data/<userId>
+  final documentPath = "$basePath/user_data/$userId";
+
+  bool docExists = false;
+  String? preservedCreationDate;
+
+  try {
+    // Try to retrieve the document.
+    final existingDoc = await firestore.projects.databases.documents.get(documentPath);
+    docExists = true;
+    final existingFields = await _convertFirestoreFields(existingDoc.fields ?? {});
+    // Read the existing creationDate, if any.
+    preservedCreationDate = existingFields["creationDate"];
+  } on fs.DetailedApiRequestError catch (e) {
+    // If the document isn't found, we assume it doesn't exist.
+    if (e.status != 404) {
+      rethrow;
+    }
+  }
+
+  // Always update lastAccessDate.
+  final newLastAccessDateString = lastAccessDate.toUtc().toIso8601String();
+
+  // Build the data payload.
+  // Include userId and lastAccessDate always.
+  // Include creationDate only if the document doesn't exist or if it's missing.
+  final Map<String, dynamic> data = {
+    "userId": userId,
+    "creationDate": preservedCreationDate,
+    "lastAccessDate": newLastAccessDateString,
+  };
+
+  if (!docExists || preservedCreationDate == null || preservedCreationDate.isEmpty) {
+    // If no creation date exists, set it to the provided creationDate
+    // or default to lastAccessDate.
+    final DateTime resolvedCreationDate = lastAccessDate;
+    data["creationDate"] = resolvedCreationDate.toUtc().toIso8601String();
+  }
+
+  // Convert to Firestore fields.
+  final fields = convertToFirestoreFields(data);
+  final document = fs.Document(fields: fields);
+
+  // Patch the document (this creates or updates the document).
+  await firestore.projects.databases.documents.patch(
+    document,
+    documentPath,
+  );
+}
+
+  Future<Map<String, dynamic>?> getUserData(String userId) async {
+  final String projectId = "versatale-966fe";  // Update to your actual GCP project
+  final String basePath = "projects/$projectId/databases/(default)/documents";
+  final firestore = await getFirestoreApi();
+
+  // Document path is user_data/<userId>
+  final documentPath = "$basePath/user_data/$userId";
+
+  try {
+    final doc = await firestore.projects.databases.documents.get(documentPath);
+
+    if (doc.fields == null) {
+      // Document found, but no fields. Return an empty Map or null
+      return {};
+    }
+
+    // Convert Firestore fields to a Map<String, dynamic>
+    final userData = _convertFirestoreFields(doc.fields!);
+    // doc.name might look like ".../user_data/<userId>"
+    final docId = doc.name?.split("/").last ?? "";
+    userData["docId"] = docId;  // optional
+    return userData;
+
+  } on fs.DetailedApiRequestError catch (e) {
+    if (e.status == 404) {
+      // No doc found for that user
+      return null; // or throw a custom exception
+    }
+    rethrow;
+  } on SocketException catch (e, st) {
+    print("SocketException in getUserData: $e\n$st");
+    throw ServerUnavailableException();
+  } on FormatException catch (e, st) {
+    print("FormatException in getUserData: $e\n$st");
+    throw StoryJsonParsingException();
+  } catch (e, st) {
+    print("Unexpected error in getUserData: $e\n$st");
+    throw StoryException();
+  }
+}
+
+Future<void> deleteUserData(String userId) async {
+  final String projectId = "versatale-966fe";  // Update to your actual GCP project
+  final String basePath = "projects/$projectId/databases/(default)/documents";
+  final firestore = await getFirestoreApi();
+
+  // Path: user_data/<userId>
+  final documentPath = "$basePath/user_data/$userId";
+
+  try {
+    await firestore.projects.databases.documents.delete(documentPath);
+  } on fs.DetailedApiRequestError catch (e) {
+    if (e.status == 404) {
+      // Document doesn't exist. Consider returning success or
+      // throwing a custom error, depending on your desired behavior.
+      return;
+    }
+    rethrow; // If it's another error code
+  } on SocketException catch (e, st) {
+    print("SocketException in deleteUserData: $e\n$st");
+    throw ServerUnavailableException();
+  } on FormatException catch (e, st) {
+    print("FormatException in deleteUserData: $e\n$st");
+    throw StoryJsonParsingException();
+  } catch (e, st) {
+    print("Unexpected error in deleteUserData: $e\n$st");
+    throw StoryException();
+  }
+}
+
+Future<void> deleteAllStories(String userId) async {
+  try {
+    // 1) Retrieve all stories for the user
+    final stories = await getSavedStories(userId);
+
+    // 2) Loop over each story and delete
+    for (final story in stories) {
+      final docId = story["story_ID"];
+      if (docId != null && docId is String && docId.isNotEmpty) {
+        await deleteSavedStory(docId);
+      }
+    }
+  } catch (e, st) {
+    print("Error in deleteAllStories: $e\n$st");
+    rethrow; // We'll handle the error in the controller
   }
 }
