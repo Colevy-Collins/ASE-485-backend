@@ -1,5 +1,3 @@
-// story_manager.dart
-
 import '../models/story.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
 import 'prompt_generator.dart';
@@ -13,105 +11,28 @@ class StoryManager {
       : promptGenerator = promptGenerator ?? PromptGenerator();
 
   /// Initializes a new story using the provided storyData and data (from jsonDecode).
-  /// For each dimension and variable, the value from data is used if available,
-  /// otherwise a default value is applied.
+  /// The only change is that any key/value pairs in `data["dimensions"]` are now
+  /// directly copied into `storyData.dimensions`.
   void initializeStory(StoryData storyData, Map<String, dynamic> data) {
-    storyData.selectStrategyFromString(data["storyLength"]);
-    storyData.dimensions = StoryDimensions(
-      time: (data["dimensions"]?["Setting"]?["1A - Time"] as String?) ??
-          "A cyclical age that repeats after catastrophic events",
-      place: (data["dimensions"]?["Setting"]?["1B - Place"] as String?) ??
-          "A labyrinthine underground city beneath ruins",
-      physicalEnvironment:
-          (data["dimensions"]?["Setting"]?["1C - Physical Environment"] as String?) ??
-              "Gravity-defying landscapes where directions shift unexpectedly",
-      culturalAndSocialContext:
-          (data["dimensions"]?["Setting"]?["1D - Cultural & Social Context"] as String?) ??
-              "A theocratic realm governed by rigid religious dogma",
-      technologyAndAdvancement:
-          (data["dimensions"]?["Setting"]?["1E - Technology & Level of Advancement"] as String?) ??
-              "Hybrid medieval and arcane technologies coexisting",
-      moodAndAtmosphere:
-          (data["dimensions"]?["Setting"]?["1F - Mood & Atmosphere"] as String?) ??
-              "Chaotic and unpredictable, shifting from calm to crisis",
-      worldBuildingDetails:
-          (data["dimensions"]?["Setting"]?["1G - World-Building Details"] as String?) ??
-              "Forbidden zones that alter reality in bizarre ways",
+    // Keep the logic for storyLength, optionCount, etc. exactly as is.
+    // For example:
+    storyData.selectStrategyFromString((data["storyLength"] as String?) ?? "Short");
 
-      // Dimension 2 - Genre
-      genre: (data["dimensions"]?["Genre"] as String?) ?? "Adventure",
+    // Dynamically copy dimensions from the payload:
+    // If data["dimensions"] is not null, treat it as a Map and copy all (key, value) pairs.
+    Map<String, dynamic>? dims = data["dimensions"] as Map<String, dynamic>?;
+    if (dims != null) {
+      dims.forEach((key, value) {
+        // In this example, we only store string values.
+        // If `value` is not a string, you can skip it or handle it differently.
+        if (value is String) {
+          storyData.dimensions[key] = value;
+        }
+      });
+    }
 
-      // Dimension 3 - Tone
-      tone: (data["dimensions"]?["Tone"] as String?) ?? "Suspenseful",
-
-      // Dimension 4 - Style
-      style: (data["dimensions"]?["Style"] as String?) ??
-          "Poetic, dreamlike prose focusing on atmosphere",
-
-      // Dimension 5 - Perspective
-      perspective: (data["dimensions"]?["Perspective"] as String?) ??
-          "Unreliable narrator with possible hidden motives",
-
-      // Dimension 6 - Difficulty (Encounters & Challenges)
-      difficulty: (data["dimensions"]?["Difficulty (Encounters & Challenges)"] as String?) ??
-          "Encounters that can be bypassed via stealth or diplomacy",
-
-      // Dimension 7 - Protagonist Customization
-      protagonistBackground:
-          (data["dimensions"]?["Protagonist Customization"]?["Background"] as String?) ??
-              "Summoned outsider from a parallel reality",
-      protagonistAbilities:
-          (data["dimensions"]?["Protagonist Customization"]?["Abilities"] as String?) ??
-              "Psionic talents for telepathy or telekinesis",
-      protagonistPersonality:
-          (data["dimensions"]?["Protagonist Customization"]?["Personality"] as String?) ??
-              "Quiet observer with an iron will",
-      protagonistReputation:
-          (data["dimensions"]?["Protagonist Customization"]?["Reputation"] as String?) ??
-              "Enigmatic wanderer whose deeds are whispered about",
-
-      // Dimension 8 - Antagonist Development
-      antagonistDevelopment: (data["dimensions"]?["Antagonist Development"] as String?) ??
-          "A shadowy mastermind manipulating events behind the scenes",
-
-      // Dimension 9 - Theme
-      theme: (data["dimensions"]?["Theme"] as String?) ?? "Fate versus free will",
-
-      // Dimension 10 - Encounter Variations
-      encounterVariations: (data["dimensions"]?["Encounter Variations"] as String?) ??
-          "Spiritual or psychic showdowns in dreamlike realms",
-
-      // Dimension 11 - Moral Dilemmas
-      moralDilemmas: (data["dimensions"]?["Moral Dilemmas"] as String?) ??
-          "Using forbidden power at the risk of corruption",
-
-      // Dimension 12 - Story Pacing
-      storyPacing: (data["dimensions"]?["Story Pacing"] as String?) ??
-          "Constant tension with short-lived calm moments",
-
-      // Dimension 13 - Final Objective
-      finalObjective: (data["dimensions"]?["Final Objective"] as String?) ??
-          "Restoring balance to an ailing ecosystem or realm",
-
-      // Dimension 14 - Consequences of Failure
-      consequencesOfFailure: (data["dimensions"]?["Consequences of Failure"] as String?) ??
-          "Permanent corruption twisting the hero or the land",
-
-      // Dimension 15 - Decision Options
-      decisionOptions: (data["dimensions"]?["Decision Options"] as String?) ??
-          "Subtle shifts in outcomes based on moral or ethical stances",
-
-      // Dimension 16 - Puzzle & Final Challenge
-      puzzleAndFinalChallenge:
-          (data["dimensions"]?["Puzzle & Final Challenge"] as String?) ??
-              "A branching-path decision maze where each turn offers multiple routes. "
-              "Choosing a consistent path with correct logic yields the good ending, but straying into dead-ends accumulates errors, concluding in a fail ending.",
-
-      // Dimension 17 - Fail States
-      failStates: (data["dimensions"]?["Fail States"] as String?) ??
-          "Escalating corruption that twists the protagonist’s motives, culminating in a self-inflicted collapse or villainous turn",
-    );
-
+    // Keep the rest of your code the same:
+    // example, maxLegs, etc.
     storyData.optionCount = (data["optionCount"] as int?) ?? 2;
     storyData.currentSection = (data["currentSection"] as String?) ?? "Exposition";
     storyData.currentLeg = (data["currentLeg"] as int?) ?? 0;
@@ -151,17 +72,10 @@ class StoryManager {
   /// Removes the last story leg from the story, effectively rolling back one step.
   /// Throws an InvalidStoryOperationException if there is only one leg in the list (the initial prompt).
   void removeLastStoryLeg(StoryData storyData) {
-    // If there's only 1 leg, it's presumably the initial/system prompt.
     if (storyData.storyLegs.length <= 2) {
-      // Old: throw StateError("Cannot remove the last story leg because only one leg remains.");
       throw InvalidStoryOperationException(
-        // Using a custom message from ErrorStrings if you want
-        // (but here we’ll just use a hard-coded message for clarity).
-        "Cannot remove the last story leg because only one leg remains."
-      );
+          "Cannot remove the last story leg because only one leg remains.");
     }
-
-    // Remove the most recent story leg.
     storyData.storyLegs.removeLast();
 
     // Update the storyTitle to whatever the new last leg's AI response has.

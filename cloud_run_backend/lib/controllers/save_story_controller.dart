@@ -8,7 +8,8 @@ import '../utility/custom_exceptions.dart';
 class SaveStoryController {
   Future<Response> handle(Request request, String userId, StoryData storyData) async {
     try {
-      final storyJson = storyData.toJson(); // Ensure StoryData has a toJson() method.
+      final storyJson = storyData.toJson(); 
+      print(storyJson);// Ensure StoryData has a toJson() method.
       await saveStory(userId, storyJson);
       return Response.ok(
         jsonEncode({'message': 'Story saved successfully.'}),

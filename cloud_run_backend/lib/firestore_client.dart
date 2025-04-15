@@ -17,7 +17,10 @@ Map<String, fs.Value> convertToFirestoreFields(Map<String, dynamic> data) {
 }
 
 fs.Value _convertValue(dynamic value) {
-  if (value is String) {
+  if (value == null) {
+    // Explicitly return a Firestore null type
+    return fs.Value(stringValue: "null");
+  } else if (value is String) {
     return fs.Value(stringValue: value);
   } else if (value is int) {
     return fs.Value(integerValue: value.toString());
@@ -25,21 +28,24 @@ fs.Value _convertValue(dynamic value) {
     return fs.Value(doubleValue: value);
   } else if (value is bool) {
     return fs.Value(booleanValue: value);
+  } else if (value is DateTime) {
+    return fs.Value(timestampValue: value.toUtc().toIso8601String());
   } else if (value is List) {
     return fs.Value(
       arrayValue: fs.ArrayValue(
         values: value.map((e) => _convertValue(e)).toList(),
       ),
     );
-  } else if (value is Map) {
+  } else if (value is Map<String, dynamic>) {
     return fs.Value(
-      mapValue: fs.MapValue(fields: convertToFirestoreFields(value as Map<String, dynamic>)),
+      mapValue: fs.MapValue(fields: convertToFirestoreFields(value)),
     );
-  } else if (value is DateTime) {
-    return fs.Value(timestampValue: value.toUtc().toIso8601String());
+  } else {
+    // For unsupported types: skip or store as a string.
+    return fs.Value(stringValue: value.toString());
   }
-  return fs.Value(); // For null or unsupported types.
 }
+
 
 /// Gets a Google Firestore API client via Service Account credentials.
 Future<fs.FirestoreApi> getFirestoreApi() async {
@@ -171,6 +177,9 @@ Map<String, dynamic> _convertFirestoreFields(Map<String, fs.Value> fields) {
 
 dynamic _convertFromFirestoreValue(fs.Value value) {
   if (value.stringValue != null) {
+    if (value.stringValue == "null") {
+      return null;
+    }
     return value.stringValue;
   } else if (value.integerValue != null) {
     return int.tryParse(value.integerValue!) ?? value.integerValue;
@@ -179,7 +188,9 @@ dynamic _convertFromFirestoreValue(fs.Value value) {
   } else if (value.booleanValue != null) {
     return value.booleanValue;
   } else if (value.arrayValue != null && value.arrayValue!.values != null) {
-    return value.arrayValue!.values!.map((v) => _convertFromFirestoreValue(v)).toList();
+    return value.arrayValue!.values!
+        .map((v) => _convertFromFirestoreValue(v))
+        .toList();
   } else if (value.mapValue != null && value.mapValue!.fields != null) {
     return _convertFirestoreFields(value.mapValue!.fields!);
   } else if (value.timestampValue != null) {
@@ -187,6 +198,7 @@ dynamic _convertFromFirestoreValue(fs.Value value) {
   }
   return null;
 }
+
 
 Future<Map<String, dynamic>> getSavedStoryById(String storyId) async {
   final String projectId = "versatale-966fe";

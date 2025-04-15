@@ -1,5 +1,3 @@
-// lib/models/story.dart
-
 /// Represents a single story leg, containing the user's message and the AI's response.
 class StoryLeg {
   Map<String, dynamic> userMessage;
@@ -16,146 +14,42 @@ class StoryLeg {
   }
 }
 
-/// Holds the dimension variables as defined in your requirements.
+/// Holds the dimension variables in a dynamic map.
+/// Instead of having a fixed set of fields, we store all dimension keys/values here.
 class StoryDimensions {
-  // Dimension 1 - Setting
-  String time;
-  String place;
-  String physicalEnvironment;
-  String culturalAndSocialContext;
-  String technologyAndAdvancement;
-  String moodAndAtmosphere;
-  String worldBuildingDetails;
+  /// The internal map that stores key-value pairs for dimensions.
+  Map<String, String> dimensionMap = {};
 
-  // Dimension 2 - Genre
-  String genre;
-  // Dimension 3 - Tone
-  String tone;
-  // Dimension 4 - Style
-  String style;
-  // Dimension 5 - Perspective
-  String perspective;
-  // Dimension 6 - Difficulty (Encounters & Challenges)
-  String difficulty;
-  // Dimension 7 - Protagonist Customization
-  String protagonistBackground;
-  String protagonistAbilities;
-  String protagonistPersonality;
-  String protagonistReputation;
-  // Dimension 8 - Antagonist Development
-  String antagonistDevelopment;
-  // Dimension 9 - Theme
-  String theme;
-  // Dimension 10 - Encounter Variations
-  String encounterVariations;
-  // Dimension 11 - Moral Dilemmas
-  String moralDilemmas;
-  // Dimension 12 - Story Pacing
-  String storyPacing;
-  // Dimension 13 - Final Objective
-  String finalObjective;
-  // Dimension 14 - Consequences of Failure
-  String consequencesOfFailure;
-  // Dimension 15 - Decision Options
-  String decisionOptions;
-  // Dimension 16 - Puzzle & Final Challenge (Abstract, Turn-Based, Good vs. Fail Ending, No Story Elements)
-  String puzzleAndFinalChallenge;
-  // Dimension 17 - Fail States
-  String failStates;
-
-  StoryDimensions({
-    this.time = "",
-    this.place = "",
-    this.physicalEnvironment = "",
-    this.culturalAndSocialContext = "",
-    this.technologyAndAdvancement = "",
-    this.moodAndAtmosphere = "",
-    this.worldBuildingDetails = "",
-    this.genre = "",
-    this.tone = "",
-    this.style = "",
-    this.perspective = "",
-    this.difficulty = "",
-    this.protagonistBackground = "",
-    this.protagonistAbilities = "",
-    this.protagonistPersonality = "",
-    this.protagonistReputation = "",
-    this.antagonistDevelopment = "",
-    this.theme = "",
-    this.encounterVariations = "",
-    this.moralDilemmas = "",
-    this.storyPacing = "",
-    this.finalObjective = "",
-    this.consequencesOfFailure = "",
-    this.decisionOptions = "",
-    this.puzzleAndFinalChallenge = "",
-    this.failStates = "",
-  });
-
-  Map<String, dynamic> toJson() {
-    return {
-      "Dimension 1 - Setting": {
-        "1A - Time": time,
-        "1B - Place": place,
-        "1C - Physical Environment": physicalEnvironment,
-        "1D - Cultural & Social Context": culturalAndSocialContext,
-        "1E - Technology & Level of Advancement": technologyAndAdvancement,
-        "1F - Mood & Atmosphere": moodAndAtmosphere,
-        "1G - World-Building Details": worldBuildingDetails,
-      },
-      "Dimension 2 - Genre": genre,
-      "Dimension 3 - Tone": tone,
-      "Dimension 4 - Style": style,
-      "Dimension 5 - Perspective": perspective,
-      "Dimension 6 - Difficulty (Encounters & Challenges)": difficulty,
-      "Dimension 7 - Protagonist Customization": {
-        "Background": protagonistBackground,
-        "Abilities": protagonistAbilities,
-        "Personality": protagonistPersonality,
-        "Reputation": protagonistReputation,
-      },
-      "Dimension 8 - Antagonist Development": antagonistDevelopment,
-      "Dimension 9 - Theme": theme,
-      "Dimension 10 - Encounter Variations": encounterVariations,
-      "Dimension 11 - Moral Dilemmas": moralDilemmas,
-      "Dimension 12 - Story Pacing": storyPacing,
-      "Dimension 13 - Final Objective": finalObjective,
-      "Dimension 14 - Consequences of Failure": consequencesOfFailure,
-      "Dimension 15 - Decision Options": decisionOptions,
-      "Dimension 16 - Puzzle & Final Challenge (Abstract, Turn-Based, Good vs. Fail Ending, No Story Elements)": puzzleAndFinalChallenge,
-      "Dimension 17 - Fail States": failStates,
-    };
+  StoryDimensions({Map<String, String>? dimensionMap}) {
+    if (dimensionMap != null) {
+      this.dimensionMap = dimensionMap;
+    }
   }
 
+  /// Operator for getting a dimension by key.
+  /// Allows writing: `var dimensionValue = storyData.dimensions["Time"];`
+  String? operator [](String key) => dimensionMap[key];
+
+  /// Operator for setting a dimension by key.
+  /// Allows writing: `storyData.dimensions["Time"] = "Mid-20th century";`
+  void operator []=(String key, String value) {
+    dimensionMap[key] = value;
+  }
+
+  /// Convert this object to JSON.
+  Map<String, dynamic> toJson() {
+    return Map<String, String>.from(dimensionMap);
+  }
+
+  /// Factory that builds a StoryDimensions from a JSON map.
   factory StoryDimensions.fromJson(Map<String, dynamic> json) {
-    return StoryDimensions(
-      time: json["Dimension 1 - Setting"]?["1A - Time"] ?? "Random",
-      place: json["Dimension 1 - Setting"]?["1B - Place"] ?? "Random",
-      physicalEnvironment: json["Dimension 1 - Setting"]?["1C - Physical Environment"] ?? "Random",
-      culturalAndSocialContext: json["Dimension 1 - Setting"]?["1D - Cultural & Social Context"] ?? "Random",
-      technologyAndAdvancement: json["Dimension 1 - Setting"]?["1E - Technology & Level of Advancement"] ?? "Random",
-      moodAndAtmosphere: json["Dimension 1 - Setting"]?["1F - Mood & Atmosphere"] ?? "Random",
-      worldBuildingDetails: json["Dimension 1 - Setting"]?["1G - World-Building Details"] ?? "Random",
-      genre: json["Dimension 2 - Genre"] ?? "Random",
-      tone: json["Dimension 3 - Tone"] ?? "Random",
-      style: json["Dimension 4 - Style"] ?? "Random",
-      perspective: json["Dimension 5 - Perspective"] ?? "Random",
-      difficulty: json["Dimension 6 - Difficulty (Encounters & Challenges)"] ?? "Random",
-      protagonistBackground: json["Dimension 7 - Protagonist Customization"]?["Background"] ?? "Random",
-      protagonistAbilities: json["Dimension 7 - Protagonist Customization"]?["Abilities"] ?? "Random",
-      protagonistPersonality: json["Dimension 7 - Protagonist Customization"]?["Personality"] ?? "Random",
-      protagonistReputation: json["Dimension 7 - Protagonist Customization"]?["Reputation"] ?? "Random",
-      antagonistDevelopment: json["Dimension 8 - Antagonist Development"] ?? "Random",
-      theme: json["Dimension 9 - Theme"] ?? "Random",
-      encounterVariations: json["Dimension 10 - Encounter Variations"] ?? "Random",
-      moralDilemmas: json["Dimension 11 - Moral Dilemmas"] ?? "Random",
-      storyPacing: json["Dimension 12 - Story Pacing"] ?? "Random",
-      finalObjective: json["Dimension 13 - Final Objective"] ?? "Random",
-      consequencesOfFailure: json["Dimension 14 - Consequences of Failure"] ?? "Random",
-      decisionOptions: json["Dimension 15 - Decision Options"] ?? "Random",
-      puzzleAndFinalChallenge: json["Dimension 16 - Puzzle & Final Challenge (Abstract, Turn-Based, Good vs. Fail Ending, No Story Elements)"] ?? "Random",
-      failStates: json["Dimension 17 - Fail States"] ?? "Random",
-    );
+    final Map<String, String> newMap = {};
+    json.forEach((key, value) {
+      if (value is String) {
+        newMap[key] = value;
+      }
+    });
+    return StoryDimensions(dimensionMap: newMap);
   }
 }
 
@@ -221,11 +115,17 @@ class LongStoryStrategy implements SectionLengthStrategy {
 /// Holds a user's story data including options, story legs, dimensions,
 /// and context for section-based storytelling.
 class StoryData {
+  /// A list of every leg in the story, from the initial system prompt through
+  /// each user+AI exchange.
   List<StoryLeg> storyLegs = [];
+
+  /// The story's main title (which can change over time, if desired).
   String? storyTitle;
+
+  /// The number of options each story leg can present.
   int? optionCount;
 
-  // Dimensions (genre, setting, tone, etc.)
+  /// Dimensions is now dynamic, stored in StoryDimensions.dimensionMap.
   StoryDimensions dimensions = StoryDimensions();
 
   // Tracks the current story progression
@@ -237,11 +137,13 @@ class StoryData {
   SectionLengthStrategy? _sectionLengthStrategy;
   late Map<String, int> sectionLegLimits;
 
-  // Once the final resolution is generated, stored here.
+  // If there's a final resolution (an ending) it's stored here.
   Map<String, dynamic>? finalResolution;
+
+  // Tracks the last time the user interacted with this story.
   DateTime? lastActivity;
 
-  /// Constructor that sets a default MediumStoryStrategy
+  /// Constructor that sets a default MediumStoryStrategy.
   StoryData() {
     setSectionLengthStrategy(MediumStoryStrategy());
   }
@@ -271,11 +173,12 @@ class StoryData {
     }
   }
 
-  /// Convert StoryData to JSON for Firestore.
+  /// Convert StoryData to JSON for storage (e.g., Firestore).
   Map<String, dynamic> toJson() {
     return {
       'storyTitle': storyTitle,
       'optionCount': optionCount,
+      // Convert dimensions to JSON using the new approach:
       'dimensions': dimensions.toJson(),
       'currentLeg': currentLeg,
       'currentSection': currentSection,
@@ -285,6 +188,7 @@ class StoryData {
             'aiResponse': leg.aiResponse,
           }).toList(),
       'lastActivity': lastActivity?.toUtc().toIso8601String(),
+      'finalResolution': finalResolution,
     };
   }
 
@@ -316,6 +220,7 @@ class StoryData {
       finalResolution = Map<String, dynamic>.from(map['finalResolution']);
     }
 
+    // Convert the new 'dimensions' structure into our StoryDimensions class:
     if (map['dimensions'] != null) {
       dimensions = StoryDimensions.fromJson(
         Map<String, dynamic>.from(map['dimensions']),

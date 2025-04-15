@@ -1,15 +1,14 @@
-// custom_exceptions.dart
-
 /// Centralized error message strings so you only change them in one place.
 class ErrorStrings {
   static const missingGeminiApiKey = 'No GEMINI_API_KEY environment variable.';
   static const storyJsonParsingFailed = 'Failed to parse AI response as JSON.';
   static const missingServiceAccountJson = 'SERVICE_ACCOUNT_JSON environment variable is not set.';
-  static const maxUserStoriesReached = 'You have reached the maximum number of saved stories. Please delete some stories to continue.';
+  static const maxUserStoriesReached = 'User has reached the maximum number of saved stories.';
   static const cannotRemoveLastStoryLeg = 'Cannot remove the last story leg because only one leg remains.';
   static const thirdPartyServiceUnavailable = 'A required third-party service is currently unavailable.';
   static const serverUnavailable = 'The server is currently unreachable.';
   static const unknownError = 'An unexpected error occurred. Please try again later.';
+  static const missingDimensionOption = 'One or more required dimension options are missing.';
 }
 
 /// Base exception class for story-related errors.
@@ -64,4 +63,10 @@ class ThirdPartyServiceUnavailableException extends StoryException {
 class ServerUnavailableException extends StoryException {
   ServerUnavailableException([String? message])
       : super(message ?? ErrorStrings.serverUnavailable);
+}
+
+/// Thrown when one or more required dimension options are missing.
+class MissingDimensionOptionException extends StoryException {
+  MissingDimensionOptionException([String? message])
+      : super(message ?? ErrorStrings.missingDimensionOption);
 }
