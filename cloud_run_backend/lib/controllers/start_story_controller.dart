@@ -16,7 +16,6 @@ class StartStoryController {
       final data = jsonDecode(payload);
       final decision = data['decision'] as String;
 
-
       // Initialize the story using the StoryManager.
       _storyManager.initializeStory(storyData, data);
       

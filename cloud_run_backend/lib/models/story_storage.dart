@@ -1,5 +1,5 @@
 // services/story_storage.dart
-import '../models/story.dart';
+import 'story.dart';
 
 // Global map to store story data per user.
 final Map<String, StoryData> stories = {};

@@ -128,6 +128,9 @@ class StoryData {
   /// Dimensions is now dynamic, stored in StoryDimensions.dimensionMap.
   StoryDimensions dimensions = StoryDimensions();
 
+  // New field that will hold the session ID if this story is participating in a multiplayer session.
+  String? multiplayerSessionId;
+
   // Tracks the current story progression
   int currentLeg = 0; // Counter for legs within the current section
   String currentSection = "Exposition"; // Starting section
