@@ -13,9 +13,9 @@ void cleanInactiveStories() {
   });
 
   // 2) Clean up multiplayer sessions whose host (player 1) is inactive.
-  multiplayerSessions.removeWhere((sessionId, session) {
-    final hostStory = session.storyState;
-    return hostStory.lastActivity == null ||
-        now.difference(hostStory.lastActivity!) >= Duration(minutes: 30);
-  });
+  //multiplayerSessions.removeWhere((sessionId, session) {
+  //  final hostStory = session.storyState;
+  //  return hostStory.lastActivity == null ||
+  //      now.difference(hostStory.lastActivity!) >= Duration(minutes: 30);
+  //});
 }

@@ -16,13 +16,8 @@ import '../controllers/delete_all_stories_controller.dart';
 import '../controllers/update_last_access_controller.dart';
 import '../controllers/create_multiplayer_session_controller.dart';
 import '../controllers/join_multiplayer_session_controller.dart';
-import '../controllers/fetch_lobby_state_controller.dart';
-import '../controllers/update_player_name_controller.dart';
-import '../controllers/submit_vote_controller.dart';
-import '../controllers/resolve_votes_controller.dart';
 import '../utility/story_cleanup.dart';
 import '../models/story_storage.dart';
-import '../models/multiplayer_session.dart';
 
 /// Extracts the storyId from a request.
 /// For GET/DELETE methods, it checks the query parameters.
@@ -96,19 +91,9 @@ Handler createApiHandler() {
     } else if (path == '/update_last_access' && request.method == 'POST') {
       return UpdateLastAccessController().handle(request, userId, DateTime.now());
     } else if (path == '/create_multiplayer_session' && request.method == 'POST') {
-      return CreateMultiplayerSessionController().handle(request, storyData);
+      return CreateMultiplayerSessionController().handle(request);
     } else if (path == '/join_multiplayer_session' && request.method == 'POST') {
-      return JoinMultiplayerSessionController().handle(request, storyData);
-    } else if (path == '/lobby_state' && request.method == 'GET') {
-      return FetchLobbyStateController().handle(request, storyData);
-    }else if (path == '/lobby_state' && request.method == 'GET') {
-      return FetchLobbyStateController().handle(request, storyData);
-    } else if (path == '/update_player_name' && request.method == 'POST') {
-      return UpdatePlayerNameController().handle(request, storyData);
-    } else if (path == '/submit_vote' && request.method == 'POST') {
-      return SubmitVoteController().handle(request, storyData);
-    } else if (path == '/resolve_votes' && request.method == 'POST') {
-      return ResolveVotesController().handle(request, storyData);
+      return JoinMultiplayerSessionController().handle(request);
     } else {
       return Response.notFound('Route not found');
     }
