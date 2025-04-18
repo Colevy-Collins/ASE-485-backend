@@ -14,16 +14,28 @@ String _randomCode([int len = 6]) {
 
 class CreateMultiplayerSessionController {
   Future<Response> handle(Request req) async {
+
+      final payload = await req.readAsString();
+      final data = jsonDecode(payload);
+      final String isNewGame = data['isNewGame'] as String;
+
     final hostId = req.headers['X-User-Id'];
     if (hostId == null) {
       return Response.forbidden('User ID header missing');
     }
 
     // Create a *fresh* StoryData container for the host
-    final StoryData story = resetStoryForUser(hostId);              // mark ownership
+    StoryData story = getOrCreateStory(hostId);
+    String sessionId = '$hostId-${DateTime.now().millisecondsSinceEpoch}';
+    story.multiplayerSessionId = sessionId; 
 
-    final sessionId = '$hostId-${DateTime.now().millisecondsSinceEpoch}';
-    story.multiplayerSessionId = sessionId; // mark session ID
+    if (isNewGame == 'true'){
+      final StoryData story = resetStoryForUser(hostId);   
+      String sessionId = '$hostId-${DateTime.now().millisecondsSinceEpoch}';
+      story.multiplayerSessionId = sessionId;           // mark ownership
+    } 
+
+     // mark session ID
 
     // Produce a unique join code
     String joinCode;
