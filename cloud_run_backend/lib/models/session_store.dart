@@ -2,7 +2,6 @@
 ///   • `joinCode  → SessionInfo`  (for join‑code lookup)
 ///   • `sessionId → SessionInfo`  (for internal use)
 ///
-/// In production you would replace this with Redis / Firestore.
 import '../models/story.dart';
 
 class SessionInfo {

@@ -32,6 +32,7 @@ class CreateMultiplayerSessionController {
 
       final sessionId = '$hostId-${DateTime.now().millisecondsSinceEpoch}';
       story.multiplayerSessionId = sessionId;
+      print(story.multiplayerSessionId);
 
       String joinCode;
       do {
