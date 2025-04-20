@@ -16,7 +16,7 @@ Future<void> cleanInactiveStories() async {
   /// 1) Remove expired stories & remember their session IDs.
   stories.removeWhere((userId, story) {
     final inactive = story.lastActivity == null ||
-        now.difference(story.lastActivity!) >= const Duration(minutes: 1);
+        now.difference(story.lastActivity!) >= const Duration(minutes: 30);
 
     if (inactive && story.multiplayerSessionId != null) {
       toPurge.add(story.multiplayerSessionId!);
