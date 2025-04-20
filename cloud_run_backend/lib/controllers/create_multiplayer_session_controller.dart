@@ -1,10 +1,10 @@
-import 'dart:convert';
 import 'dart:math';
 import 'package:shelf/shelf.dart';
 
 import '../models/story_storage.dart';
 import '../models/story.dart';
 import '../models/session_store.dart';
+import '../utility/controller_utils.dart';
 
 String _randomCode([int len = 6]) {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -13,45 +13,39 @@ String _randomCode([int len = 6]) {
 }
 
 class CreateMultiplayerSessionController {
-  Future<Response> handle(Request req) async {
+  Future<Response> handle(Request req) {
+    return guarded(() async {
+      final hostId = req.userId;
+      if (hostId == null) {
+        return jsonError(403, {'message': 'User ID header missing'});
+      }
 
-      final payload = await req.readAsString();
-      final data = jsonDecode(payload);
-      final String isNewGame = data['isNewGame'] as String;
+      // Parsed JSON from middleware
+      final body = req.context['jsonBody'] as Map<String, dynamic>? ??
+          <String, dynamic>{};
 
-    final hostId = req.headers['X-User-Id'];
-    if (hostId == null) {
-      return Response.forbidden('User ID header missing');
-    }
+      final isNewGame = body['isNewGame'] == true ||
+                        body['isNewGame']?.toString() == 'true';
 
-    // Create a *fresh* StoryData container for the host
-    StoryData story = getOrCreateStory(hostId);
-    String sessionId = '$hostId-${DateTime.now().millisecondsSinceEpoch}';
-    story.multiplayerSessionId = sessionId; 
+      var story = getOrCreateStory(hostId);
+      if (isNewGame) story = resetStoryForUser(hostId);
 
-    if (isNewGame == 'true'){
-      final StoryData story = resetStoryForUser(hostId);   
-      String sessionId = '$hostId-${DateTime.now().millisecondsSinceEpoch}';
-      story.multiplayerSessionId = sessionId;           // mark ownership
-    } 
+      final sessionId = '$hostId-${DateTime.now().millisecondsSinceEpoch}';
+      story.multiplayerSessionId = sessionId;
 
-     // mark session ID
+      String joinCode;
+      do {
+        joinCode = _randomCode();
+      } while (SessionStore.byCode(joinCode) != null);
 
-    // Produce a unique join code
-    String joinCode;
-    do { joinCode = _randomCode(); }
-    while (SessionStore.byCode(joinCode) != null);
+      SessionStore.createSession(
+        hostUserId: hostId,
+        sessionId: sessionId,
+        joinCode: joinCode,
+        story: story,
+      );
 
-    SessionStore.createSession(
-      hostUserId: hostId,
-      sessionId : sessionId,
-      joinCode  : joinCode,
-      story     : story,
-    );
-
-    return Response.ok(
-      jsonEncode({'sessionId': sessionId, 'joinCode': joinCode}),
-      headers: {'Content-Type': 'application/json'},
-    );
+      return jsonOk({'sessionId': sessionId, 'joinCode': joinCode});
+    });
   }
 }

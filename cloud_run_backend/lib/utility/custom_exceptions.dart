@@ -1,72 +1,78 @@
+// lib/utility/custom_exceptions.dart
+
 /// Centralized error message strings so you only change them in one place.
 class ErrorStrings {
-  static const missingGeminiApiKey = 'No GEMINI_API_KEY environment variable.';
-  static const storyJsonParsingFailed = 'Failed to parse AI response as JSON.';
-  static const missingServiceAccountJson = 'SERVICE_ACCOUNT_JSON environment variable is not set.';
-  static const maxUserStoriesReached = 'User has reached the maximum number of saved stories.';
-  static const cannotRemoveLastStoryLeg = 'Cannot remove the last story leg because only one leg remains.';
-  static const thirdPartyServiceUnavailable = 'A required third-party service is currently unavailable.';
-  static const serverUnavailable = 'The server is currently unreachable.';
-  static const unknownError = 'An unexpected error occurred. Please try again later.';
-  static const missingDimensionOption = 'One or more required dimension options are missing.';
+  static const missingGeminiApiKey     = 'No GEMINI_API_KEY environment variable.';
+  static const storyJsonParsingFailed  = 'Failed to parse AI response as JSON.';
+  static const missingServiceAccount   = 'SERVICE_ACCOUNT_JSON environment variable is not set.';
+  static const maxUserStoriesReached   = 'User has reached the maximum number of saved stories.';
+  static const cannotRemoveLastStory   = 'Cannot remove the last story leg because only one leg remains.';
+  static const thirdPartyUnavailable   = 'A required third‑party service is currently unavailable.';
+  static const serverUnavailable       = 'The server is currently unreachable.';
+  static const unknownError            = 'An unexpected error occurred. Please try again later.';
+  static const missingDimensionOption  = 'One or more required dimension options are missing.';
 }
 
-/// Base exception class for story-related errors.
+/// Base exception class for story‑related errors.
+///
+/// Carries both a message and an HTTP status code for accurate responses.
 class StoryException implements Exception {
   final String message;
+  final int statusCode;
 
-  /// If [message] is null, it defaults to [ErrorStrings.unknownError].
-  StoryException([String? message])
-      : message = message ?? ErrorStrings.unknownError;
+  /// [statusCode] defaults to 500 (Internal Server Error).
+  StoryException(this.message, {this.statusCode = 500});
 
   @override
-  String toString() => 'StoryException: $message';
+  String toString() => 'StoryException($statusCode): $message';
 }
 
-/// Thrown when the GEMINI_API_KEY environment variable is missing.
-class MissingGeminiApiKeyException extends StoryException {
-  MissingGeminiApiKeyException([String? message])
-      : super(message ?? ErrorStrings.missingGeminiApiKey);
-}
-
-/// Thrown when we fail to parse an AI response as valid JSON.
+/// 400 Bad Request – malformed or invalid input
 class StoryJsonParsingException extends StoryException {
-  StoryJsonParsingException([String? message])
-      : super(message ?? ErrorStrings.storyJsonParsingFailed);
+  StoryJsonParsingException([String? msg])
+      : super(msg ?? ErrorStrings.storyJsonParsingFailed, statusCode: 400);
 }
 
-/// Thrown when the user has reached the maximum number of saved stories allowed.
-class MaxUserStoriesException extends StoryException {
-  MaxUserStoriesException([String? message])
-      : super(message ?? ErrorStrings.maxUserStoriesReached);
-}
-
-/// Thrown when the SERVICE_ACCOUNT_JSON environment variable is missing.
-class MissingServiceAccountJsonException extends StoryException {
-  MissingServiceAccountJsonException([String? message])
-      : super(message ?? ErrorStrings.missingServiceAccountJson);
-}
-
-/// Thrown for invalid operations on the story’s structure (e.g., removing the last leg).
 class InvalidStoryOperationException extends StoryException {
-  InvalidStoryOperationException([String? message])
-      : super(message ?? ErrorStrings.cannotRemoveLastStoryLeg);
+  InvalidStoryOperationException([String? msg])
+      : super(msg ?? ErrorStrings.cannotRemoveLastStory, statusCode: 400);
 }
 
-/// Thrown when a required external (third-party) service is unavailable.
-class ThirdPartyServiceUnavailableException extends StoryException {
-  ThirdPartyServiceUnavailableException([String? message])
-      : super(message ?? ErrorStrings.thirdPartyServiceUnavailable);
-}
-
-/// Thrown when the server itself (or network) is unreachable.
-class ServerUnavailableException extends StoryException {
-  ServerUnavailableException([String? message])
-      : super(message ?? ErrorStrings.serverUnavailable);
-}
-
-/// Thrown when one or more required dimension options are missing.
 class MissingDimensionOptionException extends StoryException {
-  MissingDimensionOptionException([String? message])
-      : super(message ?? ErrorStrings.missingDimensionOption);
+  MissingDimensionOptionException([String? msg])
+      : super(msg ?? ErrorStrings.missingDimensionOption, statusCode: 400);
+}
+
+/// 401 Unauthorized – missing or invalid credentials
+class MissingGeminiApiKeyException extends StoryException {
+  MissingGeminiApiKeyException([String? msg])
+      : super(msg ?? ErrorStrings.missingGeminiApiKey, statusCode: 401);
+}
+
+class MissingServiceAccountJsonException extends StoryException {
+  MissingServiceAccountJsonException([String? msg])
+      : super(msg ?? ErrorStrings.missingServiceAccount, statusCode: 401);
+}
+
+/// 429 Too Many Requests – quota or rate limits hit
+class MaxUserStoriesException extends StoryException {
+  MaxUserStoriesException([String? msg])
+      : super(msg ?? ErrorStrings.maxUserStoriesReached, statusCode: 429);
+}
+
+/// 503 Service Unavailable – external service or network outage
+class ThirdPartyServiceUnavailableException extends StoryException {
+  ThirdPartyServiceUnavailableException([String? msg])
+      : super(msg ?? ErrorStrings.thirdPartyUnavailable, statusCode: 503);
+}
+
+class ServerUnavailableException extends StoryException {
+  ServerUnavailableException([String? msg])
+      : super(msg ?? ErrorStrings.serverUnavailable, statusCode: 503);
+}
+
+/// 500 Internal Server Error – fallback for everything else
+class UnknownStoryException extends StoryException {
+  UnknownStoryException([String? msg])
+      : super(msg ?? ErrorStrings.unknownError, statusCode: 500);
 }
