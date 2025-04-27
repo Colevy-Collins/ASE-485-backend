@@ -18,6 +18,8 @@ import '../controllers/delete_all_stories_controller.dart';
 import '../controllers/update_last_access_controller.dart';
 import '../controllers/create_multiplayer_session_controller.dart';
 import '../controllers/join_multiplayer_session_controller.dart';
+import '../controllers/update_theme_controller.dart';
+
 
 import '../utility/story_cleanup.dart';
 import '../models/story_storage.dart';
@@ -44,6 +46,8 @@ Handler createApiHandler() {
   final _updateLastAccess    = UpdateLastAccessController();
   final _createSession       = CreateMultiplayerSessionController();
   final _joinSession         = JoinMultiplayerSessionController();
+  final _updateTheme         = UpdateThemeController();
+
 
   final router = Router();
 
@@ -67,6 +71,7 @@ Handler createApiHandler() {
   router.post  (Routes.deleteUserData,     _withUser((req, uid) => _deleteUserData.handle(req, userID: uid)));
   router.post  (Routes.deleteAllStories,   _withUser((req, uid) => _deleteAllStories.handle(req, userIdOverride: uid)));
   router.post  (Routes.updateLastAccess,   _withUser((req, uid) => _updateLastAccess.handle(req, userID: uid, time: DateTime.now())));
+  router.post  (Routes.updateUserTheme,    _withUser((req, uid) => _updateTheme.handle(req, userID: uid)));
 
   // ── Multiplayer ────────────────────────────────────────────────────────
   router.post  (Routes.createSession,      _createSession.handle);
@@ -99,6 +104,7 @@ abstract final class Routes {
   static const updateLastAccess  = '/update_last_access';
   static const createSession     = '/create_multiplayer_session';
   static const joinSession       = '/join_multiplayer_session';
+  static const updateUserTheme   = '/update_user_theme';
 }
 
 /// ───────────────────────────────────────────────────────────────────────────

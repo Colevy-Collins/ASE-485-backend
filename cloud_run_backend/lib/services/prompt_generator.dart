@@ -11,7 +11,7 @@ class PromptGenerator {
       "2) Once three wrong choices are made in total, the story concludes in a tragic ending.\n"
       "3) Only present the number of options that are reasonable or relevant at each decision point.\n"
       "4) If the story has ended—tragically or otherwise—no further choices should be processed.\n"
-      "5) When the story is in an ended state, display only one option labeled 'The story ends'.\n";
+      "5) When the story is in an ended state, you must display only one option which reads exactly 'The story ends'.\n";
   }
 
   /// Builds final instructions for the last leg of the story.

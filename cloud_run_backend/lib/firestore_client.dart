@@ -163,6 +163,29 @@ Future<void> createOrUpdateUserData(
   await firestore.projects.databases.documents.patch(document, docPath);
 });
 
+Future<void> updateUserPreferences(
+  String userId, {
+  String? preferredPalette,
+  String? preferredFont,
+}) =>
+    _safeFsCall('updateUserPreferences', () async {
+  final firestore = await _firestore;
+  final docPath   = '$_basePath/user_data/$userId';
+
+  final data = <String, String>{};
+  if (preferredPalette != null) data['preferredPalette'] = preferredPalette;
+  if (preferredFont    != null) data['preferredFont']    = preferredFont;
+  if (data.isEmpty) return;
+
+  final document = fs.Document(fields: _toFirestoreFields(data));
+
+  await firestore.projects.databases.documents.patch(
+    document,
+    docPath,
+    updateMask_fieldPaths: data.keys.toList(),
+  );
+});
+
 Future<Map<String, dynamic>?> getUserData(String userId) =>
     _safeFsCall('getUserData', () async {
   final firestore = await _firestore;
