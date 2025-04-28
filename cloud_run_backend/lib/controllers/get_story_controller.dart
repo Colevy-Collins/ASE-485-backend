@@ -39,6 +39,9 @@ class GetStoryController {
         'initialLeg': buffer.toString(),
         'options': options,
         'storyTitle': storyData.storyTitle ?? 'Untitled Story',
+        'inputTokens'     : storyData.inputTokens,
+        'outputTokens'    : storyData.outputTokens,
+        'estimatedCostUsd': storyData.estimatedCostUsd,
       });
     });
   }

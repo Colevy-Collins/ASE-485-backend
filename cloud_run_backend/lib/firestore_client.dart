@@ -35,6 +35,7 @@ Future<AutoRefreshingAuthClient> _authClient() async {
   }
 
   final jsonStr = Platform.environment['SERVICE_ACCOUNT_JSON'];
+
   if (jsonStr == null) throw MissingServiceAccountJsonException();
 
   final creds = ServiceAccountCredentials.fromJson(jsonStr);
@@ -142,25 +143,47 @@ Future<void> createOrUpdateUserData(
   final firestore = await _firestore;
   final docPath   = '$_basePath/user_data/$userId';
 
+  bool    exists          = true;
   String? creationDateIso;
 
-  // try‑get to preserve creationDate
+  // ── 1 · check if the doc exists (to preserve other fields) ────────────
   try {
     final existing =
         await firestore.projects.databases.documents.get(docPath);
     creationDateIso = existing.fields?['creationDate']?.stringValue;
   } on fs.DetailedApiRequestError catch (e) {
-    if (e.status != 404) rethrow;
+    if (e.status == 404) {
+      exists = false;
+    } else {
+      rethrow;
+    }
   }
 
-  final data = {
-    'userId':       userId,
-    'creationDate': creationDateIso ?? lastAccessDate.toUtc().toIso8601String(),
+  // ── 2 · build the map with ONLY the fields we want to set/override ────
+  final data = <String, dynamic>{
+    'userId'        : userId,
     'lastAccessDate': lastAccessDate.toUtc().toIso8601String(),
   };
 
+  // ensure creationDate is set exactly once
+  if (!exists) {
+    data['creationDate'] =
+        creationDateIso ?? lastAccessDate.toUtc().toIso8601String();
+  }
+
   final document = fs.Document(fields: _toFirestoreFields(data));
-  await firestore.projects.databases.documents.patch(document, docPath);
+
+  // ── 3 · patch: if doc exists, use updateMask so other fields survive ──
+  if (exists) {
+    await firestore.projects.databases.documents.patch(
+      document,
+      docPath,
+      updateMask_fieldPaths: data.keys.toList(), // touches ONLY these keys
+    );
+  } else {
+    // first time → write all provided fields (none of the “missing” keys yet)
+    await firestore.projects.databases.documents.patch(document, docPath);
+  }
 });
 
 Future<void> updateUserPreferences(

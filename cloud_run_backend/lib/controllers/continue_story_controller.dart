@@ -32,6 +32,9 @@ class ContinueStoryController {
         'initialLeg': buffer.toString(),
         'options': storyData.storyLegs.last.aiResponse['options'] ?? [],
         'storyTitle': storyData.storyTitle ?? 'Untitled Story',
+        'inputTokens'     : storyData.inputTokens,
+        'outputTokens'    : storyData.outputTokens,
+        'estimatedCostUsd': storyData.estimatedCostUsd,
       });
     });
   }

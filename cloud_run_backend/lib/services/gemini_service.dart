@@ -1,14 +1,11 @@
-// lib/services/gemini_service.dart
 //
 // Responsibilities
-// ────────────────
-// • Build prompts & chat history (delegated to PromptGenerator / StoryManager)
-// • Call the Gemini API safely and translate low‑level errors into our
-//   domain‑specific StoryExceptions.
-// • Nothing else. All duplication / plumbing lives in the two helpers below.
-
+// • Build prompts & chat history
+// • Call Gemini safely, translating errors
+// • Track token / cost usage and store it in StoryData
+//
 import 'dart:convert';
-import 'dart:io';                                // SocketException
+import 'dart:io';
 import 'package:google_generative_ai/google_generative_ai.dart';
 
 import '../models/story.dart';
@@ -18,9 +15,6 @@ import 'section_manager.dart';
 import '../utility/custom_exceptions.dart';
 
 class GeminiService {
-  // ──────────────────────────────────────────────────────────────────────────
-  // Construction
-  // ──────────────────────────────────────────────────────────────────────────
   GeminiService({
     PromptGenerator? promptGenerator,
     StoryManager?   storyManager,
@@ -33,44 +27,39 @@ class GeminiService {
   final StoryManager    storyManager;
   final SectionManager  sectionManager;
 
-  // ──────────────────────────────────────────────────────────────────────────
+  //─────────────────────────────────────────────────────────
   // Public API
-  // ──────────────────────────────────────────────────────────────────────────
-
-  /// Generates the **final resolution** leg of the story.
+  //─────────────────────────────────────────────────────────
   Future<Map<String, dynamic>> handleResolutionSection(
     StoryData       storyData,
     List<Content>   history,
     GenerativeModel model,
   ) =>
       _safeGeminiCall('handleResolutionSection', () async {
-        final instruction  = promptGenerator.buildFinalInstructions(storyData);
-        final chat         = model.startChat(history: history);
-        final response     = await chat.sendMessage(Content.text(instruction));
-        final rawJson      = response.text ?? '';
-        final parsed       = jsonDecode(rawJson) as Map<String, dynamic>;
+        final instruction = promptGenerator.buildFinalInstructions(storyData);
+        final chat        = model.startChat(history: history);
+        final response    = await chat.sendMessage(Content.text(instruction));
 
-        print('AI Final Response (Parsed JSON): ${jsonEncode(parsed)}');
+        _recordUsage(storyData, response);
 
+        final parsed = jsonDecode(response.text ?? '') as Map<String, dynamic>;
         storyData.finalResolution = parsed;
         return parsed;
       });
 
-  /// Main entry‑point: advances the story by **one decision**.
   Future<Map<String, dynamic>> callGeminiAPIWithHistory(
     StoryData storyData,
     String    decision,
   ) =>
       _safeGeminiCall('callGeminiAPIWithHistory', () async {
-        // 1) Build / update chat history
+        // 1. history
         final history = storyManager.buildChatHistory(storyData)
           ..add(Content.text('User: $decision'));
 
-        // 2) Section transition logic
-        final int sectionLimit =
+        // 2. section transition
+        final sectionLimit =
             storyData.sectionLegLimits[storyData.currentSection] ?? 2;
-
-        final model = _createModel(); // uses the centralised API key getter
+        final model = _createModel();
 
         if (storyData.currentLeg >= sectionLimit &&
             storyData.currentSection != 'Final Resolution') {
@@ -78,32 +67,55 @@ class GeminiService {
               storyData, model, history);
         }
 
-        // 3) If we’re already in the final phase, short‑circuit
+        // 3. already final?
         if (storyData.currentSection == 'Final Resolution') {
           return storyData.finalResolution ??
               await handleResolutionSection(storyData, history, model);
         }
 
-        // 4) Normal flow ─ increment leg counter & build prompt
+        // 4. normal story continuation
         storyData.currentLeg++;
         final sysPrompt   = promptGenerator.generateSystemPrompt(storyData);
         final instruction = promptGenerator.buildGeneralInstructions(storyData) +
             sysPrompt['content'];
 
-        final chat       = model.startChat(history: history);
-        final response   = await chat.sendMessage(Content.text(instruction));
+        final chat     = model.startChat(history: history);
+        final response = await chat.sendMessage(Content.text(instruction));
+
+        _recordUsage(storyData, response);
+
         final jsonResult = jsonDecode(response.text ?? '') as Map<String, dynamic>
-          ..['decisionNumber'] = storyData.currentLeg;
+          ..['decisionNumber']   = storyData.currentLeg
+          ..['inputTokens']      = storyData.inputTokens
+          ..['outputTokens']     = storyData.outputTokens
+          ..['estimatedCostUsd'] = storyData.estimatedCostUsd;
 
         return jsonResult;
       });
 
-  // ──────────────────────────────────────────────────────────────────────────
-  // Private helpers (the *only* place you touch when error rules change)
-  // ──────────────────────────────────────────────────────────────────────────
+  //─────────────────────────────────────────────────────────
+  // Helpers
+  //─────────────────────────────────────────────────────────
+  void _recordUsage(StoryData story, GenerateContentResponse resp) {
+    final UsageMetadata? u = resp.usageMetadata;
+    if (u == null) return;
 
-  /// Single‑source‑of‑truth for locating the Gemini API key.
-  /// Throws a *typed* exception so controllers can return **401**.
+    story.inputTokens  += u.promptTokenCount     ?? 0;
+    story.outputTokens += u.candidatesTokenCount ?? 0;
+    story.estimatedCostUsd = _costUsd(
+      story.inputTokens,
+      story.outputTokens,
+    );
+  }
+
+  // April-2025 public pricing (gemini-2.0-flash)
+  static const double _kInCostPerToken  = 0.10 / 1e6; // $0.10 / M prompt
+  static const double _kOutCostPerToken = 0.40 / 1e6; // $0.40 / M output
+
+  double _costUsd(int inTok, int outTok) =>
+      inTok * _kInCostPerToken + outTok * _kOutCostPerToken;
+
+  //──────── Gemini model + error wrapper ─────────
   String get _apiKey {
     final key = Platform.environment['GEMINI_API_KEY1'];
     if (key == null) throw MissingGeminiApiKeyException();
@@ -114,52 +126,41 @@ class GeminiService {
         model: 'gemini-2.0-flash',
         apiKey: _apiKey,
         generationConfig: GenerationConfig(
-          temperature:       2,
-          topK:              40,
-          topP:              0.95,
-          maxOutputTokens:   8192,
-          responseMimeType:  'application/json',
-          responseSchema:    _responseSchema,
+          temperature:      2,
+          topK:             40,
+          topP:             0.95,
+          maxOutputTokens:  8192,
+          responseMimeType: 'application/json',
+          responseSchema:   _responseSchema,
         ),
       );
 
-  /// Wraps any *Gemini* call, translating low‑level errors into
-  /// [StoryException] sub‑classes that already embed the correct HTTP status.
   Future<T> _safeGeminiCall<T>(
     String context,
     Future<T> Function() action,
   ) async {
     try {
       return await action();
-    } on SocketException catch (e, st) {
-      print('SocketException in $context: $e\n$st');
+    } on SocketException {
       throw ServerUnavailableException();
-    } on FormatException catch (e, st) {
-      print('FormatException in $context: $e\n$st');
+    } on FormatException {
       throw StoryJsonParsingException();
-    } on Exception catch (e, st) {
-      // Any other exception coming from google_generative_ai.
-      print('Gemini SDK exception in $context: $e\n$st');
+    } on Exception {
       throw ThirdPartyServiceUnavailableException();
-    } catch (e, st) {
-      // Truly unexpected: preserve original stack for logs but mask for clients.
-      print('Unknown error in $context: $e\n$st');
+    } catch (_) {
       throw StoryException(ErrorStrings.unknownError);
     }
   }
 
-  // Pre‑built JSON schema so it’s only created once.
+  // JSON schema (unchanged)
   static final Schema _responseSchema = Schema.object(
     description: 'Story data object for the Gemini API.',
     properties: {
-      'storyTitle':      Schema.string(description: 'A short title.', nullable: false),
-      'decisionNumber':  Schema.integer(description: 'Current step number.', nullable: false),
-      'currentSection':  Schema.string(description: "Narrative part.", nullable: false),
-      'storyLeg':        Schema.string(description: 'Narrative text.', nullable: false),
-      'options': Schema.array(
-        description: 'Choices, each starting with a numeric identifier.',
-        items: Schema.string(nullable: false),
-      ),
+      'storyTitle'    : Schema.string(nullable: false),
+      'decisionNumber': Schema.integer(nullable: false),
+      'currentSection': Schema.string(nullable: false),
+      'storyLeg'      : Schema.string(nullable: false),
+      'options'       : Schema.array(items: Schema.string(nullable: false)),
     },
     requiredProperties: [
       'storyTitle',
