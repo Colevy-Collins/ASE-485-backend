@@ -17,7 +17,6 @@ class StoryManager {
     // Keep the logic for Story Length, Minimum Number of Options, etc. exactly as is.
     // For example:
 
-    print(data["dimensions"]["Story Length"]);
     storyData.selectStrategyFromString((data["dimensions"]["Story Length"] as String?) ?? "Short");
 
     // Dynamically copy dimensions from the payload:
@@ -49,7 +48,6 @@ class StoryManager {
 
     // Keep the rest of your code the same:
     // example, maxLegs, etc.
-    print(data["dimensions"]["Minimum Number of Options"]);
 
     final String? maybeStr = data['dimensions']['Minimum Number of Options'] as String?;
     final int minOptionsSafe = int.tryParse(maybeStr ?? '') ?? 2;
