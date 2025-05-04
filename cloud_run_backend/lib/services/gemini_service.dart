@@ -3,6 +3,7 @@
 // • Build prompts & chat history
 // • Call Gemini safely, translating errors
 // • Track token / cost usage and store it in StoryData
+// • NEW: Track wrong‑choice count and trigger a fail ending when the cap is hit
 //
 import 'dart:convert';
 import 'dart:io';
@@ -52,14 +53,50 @@ class GeminiService {
     String    decision,
   ) =>
       _safeGeminiCall('callGeminiAPIWithHistory', () async {
-        // 1. history
+        /*─────────────────────────────────────────────────────────*
+         * 0) Tally wrong answers and see if we hit the fail cap   *
+         *─────────────────────────────────────────────────────────*/
+        if (decision.contains('(!)')) {
+          storyData.currentNumberofWrongDecisions++;
+        }
+        final int wrongCap = storyData.difficulty ?? 4;
+        final bool hitCap  =
+            storyData.currentNumberofWrongDecisions >= wrongCap;
+
+        /*─────────────────────────────────────────────────────────*
+         * 1) Build chat history for whichever path we take        *
+         *─────────────────────────────────────────────────────────*/
         final history = storyManager.buildChatHistory(storyData)
           ..add(Content.text('User: $decision'));
 
-        // 2. section transition
+        final model = _createModel();
+
+        /*─────────────────────────────────────────────────────────*
+         * 2) If the cap is reached → immediate tragic ending      *
+         *─────────────────────────────────────────────────────────*/
+        if (hitCap) {
+          // Generate (and cache) the fail resolution once
+          if (storyData.finalResolution == null) {
+            final instruction =
+                promptGenerator.buildFailInstructions(storyData);
+            final chat     = model.startChat(history: history);
+            final response = await chat.sendMessage(Content.text(instruction));
+
+            _recordUsage(storyData, response);
+
+            storyData.finalResolution =
+                jsonDecode(response.text ?? '') as Map<String, dynamic>;
+          }
+
+          storyData.currentSection = 'Final Resolution';
+          return storyData.finalResolution!;
+        }
+
+        /*─────────────────────────────────────────────────────────*
+         * 3) Normal section‑transition bookkeeping                *
+         *─────────────────────────────────────────────────────────*/
         final sectionLimit =
             storyData.sectionLegLimits[storyData.currentSection] ?? 2;
-        final model = _createModel();
 
         if (storyData.currentLeg >= sectionLimit &&
             storyData.currentSection != 'Final Resolution') {
@@ -67,13 +104,17 @@ class GeminiService {
               storyData, model, history);
         }
 
-        // 3. already final?
+        /*─────────────────────────────────────────────────────────*
+         * 4) Already (happy) final?                               *
+         *─────────────────────────────────────────────────────────*/
         if (storyData.currentSection == 'Final Resolution') {
           return storyData.finalResolution ??
               await handleResolutionSection(storyData, history, model);
         }
 
-        // 4. normal story continuation
+        /*─────────────────────────────────────────────────────────*
+         * 5) Continue the story as usual                          *
+         *─────────────────────────────────────────────────────────*/
         storyData.currentLeg++;
         final sysPrompt   = promptGenerator.generateSystemPrompt(storyData);
         final instruction = promptGenerator.buildGeneralInstructions(storyData) +
@@ -84,13 +125,11 @@ class GeminiService {
 
         _recordUsage(storyData, response);
 
-        final jsonResult = jsonDecode(response.text ?? '') as Map<String, dynamic>
+        return (jsonDecode(response.text ?? '') as Map<String, dynamic>)
           ..['decisionNumber']   = storyData.currentLeg
           ..['inputTokens']      = storyData.inputTokens
           ..['outputTokens']     = storyData.outputTokens
           ..['estimatedCostUsd'] = storyData.estimatedCostUsd;
-
-        return jsonResult;
       });
 
   //─────────────────────────────────────────────────────────
@@ -108,7 +147,7 @@ class GeminiService {
     );
   }
 
-  // April-2025 public pricing (gemini-2.0-flash)
+  // April‑2025 public pricing (gemini‑2.0‑flash)
   static const double _kInCostPerToken  = 0.10 / 1e6; // $0.10 / M prompt
   static const double _kOutCostPerToken = 0.40 / 1e6; // $0.40 / M output
 

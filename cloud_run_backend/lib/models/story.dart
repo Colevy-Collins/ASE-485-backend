@@ -84,6 +84,7 @@ class StoryData {
   List<StoryLeg> storyLegs = [];
   String?        storyTitle;
   int?           optionCount;
+  int?        difficulty; 
   StoryDimensions dimensions = StoryDimensions();
 
   // Multiplayer
@@ -93,6 +94,7 @@ class StoryData {
   int    currentLeg               = 0;
   String currentSection           = "Exposition";
   int    currentSectionStartIndex = 0;
+  int    currentNumberofWrongDecisions = 0;
 
   SectionLengthStrategy? _strategy;
   late Map<String, int>  sectionLegLimits;
@@ -145,6 +147,8 @@ class StoryData {
         'inputTokens'        : inputTokens,
         'outputTokens'       : outputTokens,
         'estimatedCostUsd'   : estimatedCostUsd,
+        'difficulty'         : difficulty,
+        'currentNumberofWrongDecisions' : currentNumberofWrongDecisions,
       };
 
   void updateFromMap(Map<String, dynamic> m) {
@@ -153,6 +157,9 @@ class StoryData {
     currentLeg       = m['currentLeg'] ?? 0;
     currentSection   = m['currentSection'] ?? "Exposition";
     sectionLegLimits = Map<String, int>.from(m['sectionLegLimits'] ?? {});
+    difficulty       = m['difficulty'] ?? 4;
+    currentNumberofWrongDecisions = m['currentNumberofWrongDecisions'] ?? 0;
+
 
     if (m['storyLegs'] != null) {
       storyLegs = (m['storyLegs'] as List<dynamic>)

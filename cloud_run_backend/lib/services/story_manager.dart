@@ -14,9 +14,11 @@ class StoryManager {
   /// The only change is that any key/value pairs in `data["dimensions"]` are now
   /// directly copied into `storyData.dimensions`.
   void initializeStory(StoryData storyData, Map<String, dynamic> data) {
-    // Keep the logic for storyLength, optionCount, etc. exactly as is.
+    // Keep the logic for Story Length, Minimum Number of Options, etc. exactly as is.
     // For example:
-    storyData.selectStrategyFromString((data["storyLength"] as String?) ?? "Short");
+
+    print(data["dimensions"]["Story Length"]);
+    storyData.selectStrategyFromString((data["dimensions"]["Story Length"] as String?) ?? "Short");
 
     // Dynamically copy dimensions from the payload:
     // If data["dimensions"] is not null, treat it as a Map and copy all (key, value) pairs.
@@ -26,14 +28,32 @@ class StoryManager {
         // In this example, we only store string values.
         // If `value` is not a string, you can skip it or handle it differently.
         if (value is String) {
+          if (key == "Difficulty") {
+            if(value == "Easy") {
+              storyData.difficulty = 4;
+            } else if(value == "Normal") {
+              storyData.difficulty = 3;
+            } else if(value == "Hard") {
+              storyData.difficulty = 2;
+            } else if(value == "Nightmare") {
+              storyData.difficulty = 1;
+            } else {
+              storyData.difficulty = 4;
+            }
+          } else if (key != "Minimum Number of Options" && key != "Story Length") {
           storyData.dimensions[key] = value;
+          }
         }
       });
     }
 
     // Keep the rest of your code the same:
     // example, maxLegs, etc.
-    storyData.optionCount = (data["optionCount"] as int?) ?? 2;
+    print(data["dimensions"]["Minimum Number of Options"]);
+
+    final String? maybeStr = data['dimensions']['Minimum Number of Options'] as String?;
+    final int minOptionsSafe = int.tryParse(maybeStr ?? '') ?? 2;
+    storyData.optionCount = (minOptionsSafe);
     storyData.currentSection = (data["currentSection"] as String?) ?? "Exposition";
     storyData.currentLeg = (data["currentLeg"] as int?) ?? 0;
     storyData.currentSectionStartIndex = (data["currentSectionStartIndex"] as int?) ?? 0;
