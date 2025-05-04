@@ -1,105 +1,102 @@
 import '../models/story.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
 import 'prompt_generator.dart';
-// Import our custom exceptions
 import '../utility/custom_exceptions.dart';
 
 class StoryManager {
-  final PromptGenerator promptGenerator;
+  // ────────────────────────────────────────────────────────────────────────────
+  // Canonical look‑ups / constants
+  static const _difficultyMap = <String, int>{
+    'Easy': 4,
+    'Normal': 3,
+    'Hard': 2,
+    'Nightmare': 1,
+  };
 
+  static const _excludedDims = <String>{
+    'Difficulty',
+    'Minimum Number of Options',
+    'Story Length',
+  };
+
+  // ────────────────────────────────────────────────────────────────────────────
+  final PromptGenerator _promptGen;
   StoryManager({PromptGenerator? promptGenerator})
-      : promptGenerator = promptGenerator ?? PromptGenerator();
+      : _promptGen = promptGenerator ?? PromptGenerator();
 
-  /// Initializes a new story using the provided storyData and data (from jsonDecode).
-  /// The only change is that any key/value pairs in `data["dimensions"]` are now
-  /// directly copied into `storyData.dimensions`.
-  void initializeStory(StoryData storyData, Map<String, dynamic> data) {
-    // Keep the logic for Story Length, Minimum Number of Options, etc. exactly as is.
-    // For example:
+  // ────────────────────────────────────────────────────────────────────────────
+  /// Builds a fresh [StoryData] instance from a decoded‑JSON payload.
+  void initializeStory(StoryData story, Map<String, dynamic> data) {
+    final dims = (data['dimensions'] as Map<String, dynamic>?) ?? const {};
 
-    storyData.selectStrategyFromString((data["dimensions"]["Story Length"] as String?) ?? "Short");
+    // Fixed dimensions
+    story
+      ..selectStrategyFromString(dims['Story Length'] as String? ?? 'Short')
+      ..difficulty = _difficultyMap[dims['Difficulty']] ?? _difficultyMap['Easy']!
+      ..optionCount =
+          int.tryParse(dims['Minimum Number of Options']?.toString() ?? '') ?? 2
 
-    // Dynamically copy dimensions from the payload:
-    // If data["dimensions"] is not null, treat it as a Map and copy all (key, value) pairs.
-    Map<String, dynamic>? dims = data["dimensions"] as Map<String, dynamic>?;
-    if (dims != null) {
-      dims.forEach((key, value) {
-        // In this example, we only store string values.
-        // If `value` is not a string, you can skip it or handle it differently.
-        if (value is String) {
-          if (key == "Difficulty") {
-            if(value == "Easy") {
-              storyData.difficulty = 4;
-            } else if(value == "Normal") {
-              storyData.difficulty = 3;
-            } else if(value == "Hard") {
-              storyData.difficulty = 2;
-            } else if(value == "Nightmare") {
-              storyData.difficulty = 1;
-            } else {
-              storyData.difficulty = 4;
-            }
-          } else if (key != "Minimum Number of Options" && key != "Story Length") {
-          storyData.dimensions[key] = value;
-          }
-        }
-      });
+      // Persisted state
+      ..currentSection          = data['currentSection']          as String? ?? 'Exposition'
+      ..currentLeg              = data['currentLeg']              as int?    ?? 0
+      ..currentSectionStartIndex = data['currentSectionStartIndex'] as int?    ?? 0;
+
+    // Dynamic dimensions
+    for (final entry in dims.entries) {
+      if (!_excludedDims.contains(entry.key) && entry.value is String) {
+        story.dimensions[entry.key] = entry.value as String;
+      }
     }
 
-    // Keep the rest of your code the same:
-    // example, maxLegs, etc.
-
-    final String? maybeStr = data['dimensions']['Minimum Number of Options'] as String?;
-    final int minOptionsSafe = int.tryParse(maybeStr ?? '') ?? 2;
-    storyData.optionCount = (minOptionsSafe);
-    storyData.currentSection = (data["currentSection"] as String?) ?? "Exposition";
-    storyData.currentLeg = (data["currentLeg"] as int?) ?? 0;
-    storyData.currentSectionStartIndex = (data["currentSectionStartIndex"] as int?) ?? 0;
-
-    // Add the initial system prompt as the first story leg.
-    Map<String, dynamic> systemPrompt = promptGenerator.generateSystemPrompt(storyData);
-    storyData.storyLegs.add(StoryLeg(userMessage: {}, aiResponse: systemPrompt));
+    // Seed the very first leg.
+    final system = _promptGen.generateSystemPrompt(story);
+    story.storyLegs.add(StoryLeg(userMessage: const {}, aiResponse: system));
   }
 
-  // Appends a new story leg.
-  void appendStoryLeg(StoryData storyData, String decision, Map<String, dynamic> aiResponse) {
-    Map<String, dynamic> userMsg = {
-      "role": "user",
-      "content": decision,
-    };
-    storyData.storyLegs.add(StoryLeg(userMessage: userMsg, aiResponse: aiResponse));
-    storyData.storyTitle = aiResponse["storyTitle"];
+  // ────────────────────────────────────────────────────────────────────────────
+  void appendStoryLeg(
+    StoryData story,
+    String decision,
+    Map<String, dynamic> aiResponse,
+  ) {
+    story.storyLegs.add(
+      StoryLeg(
+        userMessage: {'role': 'user', 'content': decision},
+        aiResponse: aiResponse,
+      ),
+    );
+    story.storyTitle = aiResponse['storyTitle'];
   }
 
-  // Builds the chat history using the initial prompt and the last 25 legs.
-  List<Content> buildChatHistory(StoryData storyData) {
-    List<Content> history = [];
-    if (storyData.storyLegs.isNotEmpty) {
-      // Always include the initial system prompt.
-      history.add(Content.text(storyData.storyLegs.first.aiResponse['content']));
-    }
-    int startIndex = storyData.storyLegs.length > 25 ? storyData.storyLegs.length - 25 : 1;
-    for (int i = startIndex; i < storyData.storyLegs.length; i++) {
-      var leg = storyData.storyLegs[i];
-      history.add(Content.text("User: ${leg.userMessage['content']}"));
-      history.add(Content.text("AI: ${leg.aiResponse['content']}"));
+  // ────────────────────────────────────────────────────────────────────────────
+  /// Returns the system prompt plus the most‑recent [maxLegs] exchanges.
+  List<Content> buildChatHistory(StoryData story, {int maxLegs = 25}) {
+    if (story.storyLegs.isEmpty) return [];
+
+    final history = <Content>[
+      Content.text(story.storyLegs.first.aiResponse['content']),
+    ];
+
+    final recent = story.storyLegs.skip(
+      (story.storyLegs.length - maxLegs).clamp(1, story.storyLegs.length),
+    );
+
+    for (final leg in recent) {
+      history
+        ..add(Content.text('User: ${leg.userMessage['content']}'))
+        ..add(Content.text('AI: ${leg.aiResponse['content']}'));
     }
     return history;
   }
 
-  /// Removes the last story leg from the story, effectively rolling back one step.
-  /// Throws an InvalidStoryOperationException if there is only one leg in the list (the initial prompt).
-  void removeLastStoryLeg(StoryData storyData) {
-    if (storyData.storyLegs.length <= 2) {
+  // ────────────────────────────────────────────────────────────────────────────
+  void removeLastStoryLeg(StoryData story) {
+    if (story.storyLegs.length <= 2) {
       throw InvalidStoryOperationException(
-          "Cannot remove the last story leg because only one leg remains.");
+        'Cannot remove the last story leg because only one leg remains.',
+      );
     }
-    storyData.storyLegs.removeLast();
-
-    // Update the storyTitle to whatever the new last leg's AI response has.
-    final lastLeg = storyData.storyLegs.last;
-    if (lastLeg.aiResponse.containsKey("storyTitle")) {
-      storyData.storyTitle = lastLeg.aiResponse["storyTitle"];
-    }
+    story.storyLegs.removeLast();
+    story.storyTitle = story.storyLegs.last.aiResponse['storyTitle'];
   }
 }
